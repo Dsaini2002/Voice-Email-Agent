@@ -90,7 +90,7 @@ export type KeyCheck = { ok: true; warning?: string } | { ok: false; reason: str
 /** Checks a user's key with one tiny request before we save it. */
 export async function validateGeminiKey(apiKey: string): Promise<KeyCheck> {
   if (!/^[A-Za-z0-9_\-]{20,200}$/.test(apiKey)) {
-    return { ok: false, reason: "Ye Gemini API key jaisi nahi lag rahi. AI Studio se poori key copy karo." };
+    return { ok: false, reason: "That does not look like a Gemini API key. Copy the full key from AI Studio." };
   }
   try {
     await clientFor(apiKey).models.generateContent({
@@ -101,11 +101,11 @@ export async function validateGeminiKey(apiKey: string): Promise<KeyCheck> {
     return { ok: true };
   } catch (err) {
     const status = err instanceof ApiError ? err.status : 0;
-    if (status === 429) return { ok: true, warning: "Key sahi hai, lekin abhi iski free limit bhari hui hai. Thodi der mein apne aap chalega." };
+    if (status === 429) return { ok: true, warning: "The key works, but its free quota is used up right now. Analysis will resume automatically." };
     if (status === 400 || status === 401 || status === 403) {
-      return { ok: false, reason: "Google ne is key ko reject kar diya. Key dobara copy karo, ya AI Studio mein nayi key banao." };
+      return { ok: false, reason: "Google rejected this key. Copy it again or create a new key in AI Studio." };
     }
-    if (status === 404) return { ok: false, reason: `Model "${config.GEMINI_MODEL}" is key ke liye available nahi hai.` };
-    return { ok: false, reason: "Abhi key check nahi ho paayi (network problem). Thodi der baad try karo." };
+    if (status === 404) return { ok: false, reason: `Model "${config.GEMINI_MODEL}" is not available for this key.` };
+    return { ok: false, reason: "Could not check the key right now (network problem). Please try again." };
   }
 }

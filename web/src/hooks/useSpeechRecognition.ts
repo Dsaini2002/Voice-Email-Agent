@@ -37,7 +37,7 @@ export const RECOGNITION_LANG: Record<Lang, string> = { hinglish: "hi-IN", hi: "
 export const WAKE_WORD = /^\s*(?:hey|hi|ok|okay|हे|हाय|ओके)?[\s,]*(?:vaani|vani|vaanee|baani|bani|waani|wani|vaniya|वाणी|वानी|वाणि|बानी)\b[\s,.!?।]*/i;
 
 /** Voice "stop" words — work even while the agent is talking (barge-in). */
-export const STOP_WORDS = /^\s*(?:vaani[\s,]*)?(stop|ruko|ruk jao|bas|chup|band karo|enough|रुको|रुक जाओ|बस|चुप|स्टॉप|बंद करो)\b/i;
+export const STOP_WORDS = /^\s*(?:vaani[\s,]*)?(stop|pause|be quiet|cancel|ruko|ruk jao|bas|chup|band karo|enough|रुको|रुक जाओ|बस|चुप|स्टॉप|बंद करो)\b/i;
 
 export type MicState = "off" | "starting" | "listening" | "blocked" | "unsupported";
 
@@ -145,11 +145,11 @@ export function useBackgroundListening({ lang, enabled, wakeWord, agentSpeaking,
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         wantRef.current = false;
         setState("blocked");
-        setError("Mic ki permission nahi mili. Address bar ke 🔒 icon se mic allow karo, phir mic icon dabao.");
+        setError("Microphone permission denied. Allow it from the lock icon in the address bar, then click the mic.");
       } else if (e.error === "audio-capture") {
-        setError("Koi microphone nahi mila.");
+        setError("No microphone found.");
       } else if (e.error === "network") {
-        setError("Voice ke liye internet chahiye. Dobara try kar raha hoon…");
+        setError("Voice recognition needs internet. Retrying…");
         backoffRef.current = Math.min(backoffRef.current * 2, 10_000);
       }
       // "no-speech" and "aborted" are normal — onend will restart.

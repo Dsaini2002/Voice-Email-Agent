@@ -89,5 +89,5 @@ User question: "${question.replace(/"/g, "'").slice(0, 500)}"`;
       gmailUrl: gmailUrl(e.threadId, user.email),
     }));
 
-  return { answer: res.answer?.trim() || "Maaf kijiye, iska jawab nahi mil paya.", refs };
+  return { answer: res.answer?.trim() || "Sorry, I could not find an answer to that.", refs };
 }

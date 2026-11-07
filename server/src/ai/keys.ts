@@ -6,7 +6,7 @@ import { users } from "../db.js";
 export class MissingGeminiKeyError extends Error {
   readonly code = "NEEDS_GEMINI_KEY";
   constructor() {
-    super("Apni Gemini API key jodo. Dashboard par 'Gemini API key' mein jaakar key daalo.");
+    super("Add your Gemini API key from the dashboard (account menu → Gemini API key).");
   }
 }
 

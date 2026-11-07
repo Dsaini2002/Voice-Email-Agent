@@ -24,7 +24,7 @@ export async function analyzePending(userId: ObjectId): Promise<void> {
         const waiting = await emails().countDocuments({ userId, analyzedAt: null, analysisError: null });
         setStatus(userId, {
           state: "needs_key",
-          message: `${waiting} emails AI analysis ka intezaar kar rahe hain. Apni Gemini API key jodo.`,
+          message: `${waiting} emails waiting for AI analysis. Add your Gemini API key.`,
         });
         return;
       }
@@ -39,7 +39,7 @@ export async function analyzePending(userId: ObjectId): Promise<void> {
       if (pending.length === 0) break;
 
       const left = await emails().countDocuments({ userId, analyzedAt: null, analysisError: null });
-      setStatus(userId, { state: "analyzing", message: `AI emails samajh raha hai… (${left} baaki)` });
+      setStatus(userId, { state: "analyzing", message: `Analysing emails… ${left} left` });
 
       let results;
       try {
@@ -57,7 +57,7 @@ export async function analyzePending(userId: ObjectId): Promise<void> {
       } catch (err) {
         // Leave emails pending; the next scheduler tick retries.
         console.error("Gemini batch failed:", (err as Error).message);
-        setStatus(userId, { state: "error", message: `AI analysis ruk gaya: ${(err as Error).message.slice(0, 140)}` });
+        setStatus(userId, { state: "error", message: `AI analysis paused: ${(err as Error).message.slice(0, 140)}` });
         return;
       }
 

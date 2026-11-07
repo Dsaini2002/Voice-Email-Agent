@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { BriefingItem } from "../../../shared/types";
+import { WAKE_WORD } from "../brand";
 import { themeFor } from "../statusTheme";
-import { PlayIcon, SendIcon } from "./icons";
+import { PlayIcon, SendIcon, StopIcon } from "./icons";
+import { Reactor } from "./Reactor";
 
 export interface ChatMessage {
   id: number;
@@ -24,15 +26,16 @@ interface Props {
 }
 
 const SUGGESTIONS = [
-  "Aaj mere Gmail mein kya important aaya?",
-  "Kaunse emails mein mera kaam pending hai?",
-  "Is hafte kitne rejection aaye?",
-  "Sirf important batao",
+  "What's important today?",
+  "Which emails need my action?",
+  "Show interview emails",
+  "How many rejections this week?",
 ];
 
 export function VoicePanel(p: Props) {
   const [text, setText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+  const lastAgent = [...p.messages].reverse().find((m) => m.role === "agent" && !m.error);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -45,117 +48,117 @@ export function VoicePanel(p: Props) {
     setText("");
   };
 
-  return (
-    <section aria-label="Voice assistant" className="relative overflow-hidden rounded-3xl border border-line bg-card p-5 shadow-sm sm:p-6">
-      <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-gradient-to-br from-saffron/25 to-teal/20 blur-3xl" />
+  const mode = p.busy ? "PROCESSING" : p.speaking ? "SPEAKING" : "STANDBY";
 
-      <div className="relative flex flex-wrap items-center gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-ink-soft">Vaani background mein sun rahi hai</p>
-          <p className="mt-0.5 text-lg font-semibold">{p.listeningHint}</p>
+  return (
+    <section aria-label="Voice console" className="hud-panel hud-corners p-5 sm:p-6">
+      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+        {/* Core + live subtitle */}
+        <div className="flex flex-col items-center text-center">
+          <Reactor size={220} sub={mode} active={p.speaking || p.busy} />
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {p.speaking ? (
+              <button type="button" onClick={p.onStopSpeaking} className="hud-btn" title='Say "stop" or press Esc'>
+                <StopIcon width={14} height={14} /> Stop
+              </button>
+            ) : (
+              <button type="button" onClick={p.onBriefing} disabled={p.busy} className="hud-btn hud-btn-solid">
+                <PlayIcon width={14} height={14} /> Today's briefing
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {p.speaking && (
-            <button
-              type="button"
-              onClick={p.onStopSpeaking}
-              className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-4 py-2.5 font-medium hover:bg-paper"
-              title="'Stop' bolo ya Esc dabao"
-            >
-              <span className="wave text-saffron" aria-hidden><span /><span /><span /><span /></span>
-              Stop
-            </button>
+
+        {/* Console */}
+        <div className="flex min-w-0 flex-col">
+          <div className="flex items-center justify-between gap-3">
+            <p className="hud-label">Command console</p>
+            <p className="font-mono text-[11px] tracking-[0.12em] text-dim">VOICE · TEXT</p>
+          </div>
+          <p className="mt-1 text-2xl font-semibold text-snow">{p.listeningHint}</p>
+
+          {lastAgent && (
+            <p className="mt-3 border-l-2 border-cy bg-cy/5 px-4 py-2 text-xl font-semibold leading-snug text-snow" aria-live="polite">
+              “{lastAgent.text}”
+            </p>
           )}
-          <button
-            type="button"
-            onClick={p.onBriefing}
-            disabled={p.busy}
-            className="inline-flex items-center gap-2 rounded-full bg-saffron px-5 py-2.5 font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
-          >
-            <PlayIcon width={16} height={16} /> Aaj ki briefing suno
-          </button>
+
+          {p.messages.length > 0 && (
+            <div className="mt-4 max-h-[260px] space-y-2.5 overflow-y-auto pr-1">
+              {p.messages.map((m) => (
+                <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`card-in max-w-[85%] border px-3.5 py-2 text-[16px] leading-relaxed ${
+                      m.role === "user"
+                        ? "border-cy/40 bg-cy/10 text-snow"
+                        : m.error
+                          ? "border-alert/50 bg-alert/10 text-alert"
+                          : "border-line bg-panel/70 text-snow/90"
+                    }`}
+                  >
+                    <span className="hud-label mb-0.5 block text-[9.5px]">{m.role === "user" ? "YOU" : m.error ? "ERROR" : "AGENT"}</span>
+                    <p className="whitespace-pre-line">{m.text}</p>
+                    {m.role === "agent" && !m.error && (
+                      <button type="button" onClick={() => p.onReplay(m.text)} className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cy hover:text-cy2">
+                        ▶ Replay
+                      </button>
+                    )}
+                    {m.refs && m.refs.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {m.refs.map((r) => {
+                          const t = themeFor(r);
+                          return (
+                            <button key={r.gmailId} type="button" onClick={() => p.onOpen(r)} className={`hud-tag inline-flex items-center gap-1 ${t.tag}`} title={r.subject}>
+                              <t.Icon width={11} height={11} /> {r.entity}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {p.busy && (
+                <div className="flex justify-start">
+                  <div className="border border-line bg-panel/70 px-4 py-3"><span className="eq"><i /><i /><i /><i /></span></div>
+                </div>
+              )}
+              <div ref={endRef} />
+            </div>
+          )}
+
+          {p.messages.length === 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => p.onAsk(s)}
+                  disabled={p.busy}
+                  className="border border-line bg-panel/60 px-3 py-1.5 text-[15px] font-semibold text-dim hover:border-cy hover:text-snow disabled:opacity-50"
+                >
+                  "{WAKE_WORD}, <span className="text-cy">{s}</span>"
+                </button>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={submit} className="mt-auto flex gap-2 pt-4">
+            <label htmlFor="ask" className="sr-only">Type a command</label>
+            <input
+              id="ask"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Or type a command…"
+              maxLength={500}
+              className="hud-input min-w-0 flex-1"
+            />
+            <button type="submit" disabled={!text.trim() || p.busy} className="hud-btn px-4" aria-label="Send">
+              <SendIcon width={16} height={16} />
+            </button>
+          </form>
         </div>
       </div>
-
-      {p.messages.length > 0 && (
-        <div className="relative mt-5 max-h-[320px] space-y-3 overflow-y-auto pr-1" aria-live="polite">
-          {p.messages.map((m) => (
-            <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
-                  m.role === "user"
-                    ? "rounded-br-md bg-ink text-paper"
-                    : m.error
-                      ? "rounded-bl-md bg-danger-soft text-danger"
-                      : "rounded-bl-md bg-paper"
-                }`}
-              >
-                <p className="whitespace-pre-line">{m.text}</p>
-                {m.role === "agent" && !m.error && (
-                  <button type="button" onClick={() => p.onReplay(m.text)} className="mt-1 text-xs text-ink-soft underline-offset-2 hover:underline">
-                    Dobara suno
-                  </button>
-                )}
-                {m.refs && m.refs.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {m.refs.map((r) => {
-                      const t = themeFor(r);
-                      return (
-                        <button
-                          key={r.gmailId}
-                          type="button"
-                          onClick={() => p.onOpen(r)}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${t.badge}`}
-                          title={r.subject}
-                        >
-                          <t.Icon width={12} height={12} /> {r.entity}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          {p.busy && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl rounded-bl-md bg-paper px-4 py-3 text-ink-soft"><span className="wave"><span /><span /><span /></span></div>
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
-      )}
-
-      {p.messages.length === 0 && (
-        <div className="relative mt-5 flex flex-wrap gap-2">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => p.onAsk(s)}
-              disabled={p.busy}
-              className="rounded-full border border-line bg-card px-3.5 py-1.5 text-sm text-ink-soft hover:border-saffron hover:text-ink disabled:opacity-50"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <form onSubmit={submit} className="relative mt-5 flex gap-2">
-        <label htmlFor="ask" className="sr-only">Type karke poochho</label>
-        <input
-          id="ask"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Ya type karke poochho…"
-          maxLength={500}
-          className="min-w-0 flex-1 rounded-xl border border-line bg-paper px-4 py-2.5 outline-none focus:border-saffron"
-        />
-        <button type="submit" disabled={!text.trim() || p.busy} className="rounded-xl bg-ink px-4 text-paper disabled:opacity-40" aria-label="Bhejo">
-          <SendIcon width={18} height={18} />
-        </button>
-      </form>
     </section>
   );
 }

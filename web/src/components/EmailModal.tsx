@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import type { BriefingItem } from "../../../shared/types";
 import { themeFor } from "../statusTheme";
 import { formatDeadline } from "./ItemCard";
-import { CheckIcon, AlertIcon, ClockIcon, CloseIcon, ExternalIcon, PlayIcon } from "./icons";
+import { CloseIcon, ExternalIcon, PlayIcon } from "./icons";
 
-/** Full detail popup for one email, opened from a status popup or a card. */
+/** Transparent HUD detail view for one email — opens over the dashboard, no new window. */
 export function EmailModal({ item, onClose, onSpeak }: {
   item: BriefingItem;
   onClose: () => void;
@@ -14,6 +14,7 @@ export function EmailModal({ item, onClose, onSpeak }: {
   const dl = item.deadline ? formatDeadline(item.deadline) : null;
   const security = item.category === "scam";
   const conf = Math.round(item.confidence * 100);
+  const when = new Date(item.date).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -23,85 +24,76 @@ export function EmailModal({ item, onClose, onSpeak }: {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${t.label}: ${item.entity}`}>
-      <button type="button" aria-label="Band karo" onClick={onClose} className="backdrop-in absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="backdrop-in absolute inset-0 bg-[rgba(2,8,20,.72)] backdrop-blur-[3px]"
+      />
 
-      <div className="modal-in relative w-full max-w-lg overflow-hidden rounded-3xl bg-card shadow-2xl">
-        <div className={`relative bg-gradient-to-br ${t.gradient} px-6 pb-6 pt-5 text-white`}>
-          <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
-          <button type="button" onClick={onClose} aria-label="Band karo" className="absolute right-3 top-3 rounded-full p-2 hover:bg-white/20">
-            <CloseIcon width={16} height={16} />
-          </button>
-          <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
-              <t.Icon width={26} height={26} />
-            </span>
-            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{t.label}</span>
-          </div>
-          <h2 className="mt-4 text-2xl font-bold leading-tight">{item.entity}</h2>
-          <p className="mt-1 text-sm text-white/85">{item.subject}</p>
+      <div
+        className="modal-in hud-panel hud-panel-glow relative w-full max-w-2xl p-7"
+        style={{ clipPath: "polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 28px 100%, 0 calc(100% - 28px))" }}
+      >
+        <button type="button" onClick={onClose} aria-label="Close" className="absolute right-8 top-4 p-2 text-dim hover:text-snow">
+          <CloseIcon width={18} height={18} />
+        </button>
+
+        <div className="flex items-center gap-3">
+          <span className={`hud-tag inline-flex items-center gap-1 ${t.tag}`}><t.Icon width={12} height={12} /> {t.label}</span>
+          <span className="font-mono text-[11px] tracking-[0.1em] text-dim">{when.toUpperCase()}</span>
+        </div>
+        <h2 className="hud-title mt-4 text-4xl font-bold text-snow" style={{ textShadow: "0 0 20px rgba(70,220,255,.5)" }}>{item.entity}</h2>
+        <p className="mt-1 text-lg text-dim">{item.subject}</p>
+
+        <p className="mt-4 text-xl font-semibold leading-snug text-snow">{item.summary}</p>
+
+        {security && (
+          <p className="mt-4 border border-alert/50 bg-alert/10 px-4 py-2.5 text-alert">
+            Do not open links in this email. Never share payments, OTPs or passwords.
+          </p>
+        )}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {item.actionText && !security && (
+            <div className="border border-line bg-cy/5 px-4 py-3">
+              <p className="hud-label text-[10px]">Your action</p>
+              <p className="mt-0.5 text-xl font-bold">{item.actionText}</p>
+            </div>
+          )}
+          {dl && (
+            <div className={`border px-4 py-3 ${dl.urgent ? "border-snow/70 bg-snow/10" : "border-line bg-cy/5"}`}>
+              <p className="hud-label text-[10px]">Deadline</p>
+              <p className="mt-0.5 text-xl font-bold">{dl.label.replace(/^Due (\w)/, (_m, c: string) => c.toUpperCase())}</p>
+            </div>
+          )}
+          {item.mergedCount > 1 && (
+            <div className="border border-line bg-cy/5 px-4 py-3">
+              <p className="hud-label text-[10px]">Reminders merged</p>
+              <p className="mt-0.5 text-xl font-bold">{item.mergedCount} emails · latest shown</p>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-4 p-6">
-          <p className="text-[15px] leading-relaxed">{item.summary}</p>
-
-          {security && (
-            <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">
-              Is email ke links mat kholo. Koi payment, OTP ya password share mat karo.
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            {item.actionText && !security && (
-              <div className="rounded-xl bg-paper p-3">
-                <p className="text-xs text-ink-soft">Aapko kya karna hai</p>
-                <p className="mt-0.5 font-medium">{item.actionText}</p>
-              </div>
-            )}
-            {dl && (
-              <div className={`rounded-xl p-3 ${dl.urgent ? "bg-danger-soft text-danger" : "bg-paper"}`}>
-                <p className="text-xs opacity-80">Deadline</p>
-                <p className="mt-0.5 flex items-center gap-1 font-medium"><ClockIcon width={14} height={14} />{dl.label.replace("Deadline: ", "")}</p>
-              </div>
-            )}
-            {!security && (
-              <div className="col-span-2 rounded-xl bg-paper p-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className={`inline-flex items-center gap-1 font-medium ${item.verified ? "text-teal" : "text-danger"}`}>
-                    {item.verified ? <CheckIcon width={14} height={14} /> : <AlertIcon width={14} height={14} />}
-                    {item.verified ? "Original email se verified" : "Verify nahi hua, khud check karo"}
-                  </span>
-                  <span className="text-ink-soft">AI confidence {conf}%</span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
-                  <div className={`h-full rounded-full ${t.bar}`} style={{ width: `${conf}%` }} />
-                </div>
-              </div>
-            )}
+        {!security && (
+          <div className="mt-5 flex items-center gap-3 font-mono text-[11px] tracking-[0.1em]">
+            <span className={item.verified ? "text-cy" : "text-snow"}>{item.verified ? "✓ VERIFIED FROM ORIGINAL EMAIL" : "⚠ NOT VERIFIED · CHECK MANUALLY"}</span>
+            <div className="relative h-1.5 flex-1 bg-snow/10">
+              <i className="absolute inset-y-0 left-0 bg-gradient-to-r from-hblue to-cy shadow-[0_0_10px_#46d9ff]" style={{ width: `${conf}%` }} />
+            </div>
+            <span className="text-cy2">AI CONFIDENCE {conf}%</span>
           </div>
+        )}
 
-          {item.mergedCount > 1 && (
-            <p className="text-xs text-ink-soft">Is matter ke {item.mergedCount} emails (reminders) ek saath jode gaye. Ye sabse latest wala hai.</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a href={item.gmailUrl} target="_blank" rel="noreferrer noopener" className="hud-btn hud-btn-solid">
+            <ExternalIcon width={15} height={15} /> Open in Gmail
+          </a>
+          {!security && (
+            <button type="button" onClick={() => onSpeak(`${item.entity}. ${t.label}. ${item.summary}`)} className="hud-btn">
+              <PlayIcon width={13} height={13} /> Read aloud
+            </button>
           )}
-
-          <div className="flex flex-wrap gap-2 pt-1">
-            <a
-              href={item.gmailUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-paper hover:opacity-90"
-            >
-              <ExternalIcon width={16} height={16} /> Gmail mein kholo
-            </a>
-            {!security && (
-              <button
-                type="button"
-                onClick={() => onSpeak(`${item.entity}. ${t.label}. ${item.summary}`)}
-                className="inline-flex items-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:bg-paper"
-              >
-                <PlayIcon width={14} height={14} /> Suno
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>

@@ -111,7 +111,7 @@ export async function startInitialSync(userId: ObjectId): Promise<void> {
 
   await withLock(userId, async () => {
     const gmail = await gmailForUser(userId);
-    setStatus(userId, { state: "syncing", message: "Inbox padh raha hoon…" });
+    setStatus(userId, { state: "syncing", message: "Reading your inbox…" });
 
     const profile = await gmail.users.getProfile({ userId: "me" });
     const historyId = profile.data.historyId ?? null;
@@ -129,7 +129,7 @@ export async function startInitialSync(userId: ObjectId): Promise<void> {
       pageToken = data.nextPageToken ?? undefined;
     } while (pageToken && ids.length < config.INITIAL_SYNC_MAX);
 
-    setStatus(userId, { state: "syncing", message: `${ids.length} emails download ho rahe hain…` });
+    setStatus(userId, { state: "syncing", message: `Downloading ${ids.length} emails…` });
     await fetchAndStore(gmail, userId, ids);
     await users().updateOne({ _id: userId }, { $set: { historyId, lastSyncAt: new Date() } });
 
@@ -175,7 +175,7 @@ export async function incrementalSync(userId: ObjectId): Promise<void> {
     }
 
     if (ids.size > 0) {
-      setStatus(userId, { state: "syncing", message: `${ids.size} naye emails aaye…` });
+      setStatus(userId, { state: "syncing", message: `${ids.size} new emails…` });
       await fetchAndStore(gmail, userId, [...ids]);
     }
     await users().updateOne({ _id: userId }, { $set: { historyId: latestHistoryId, lastSyncAt: new Date() } });

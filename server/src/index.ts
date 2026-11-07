@@ -32,7 +32,7 @@ async function main() {
 main().catch((err) => {
   console.error("❌ Server failed to start:", err.message);
   if (String(err.message).includes("ECONNREFUSED")) {
-    console.error("   MongoDB chal nahi raha. README ka 'MongoDB' step dekho.");
+    console.error("   MongoDB is not running. See the 'MongoDB' step in the README.");
   }
   process.exit(1);
 });

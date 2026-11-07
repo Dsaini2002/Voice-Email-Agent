@@ -31,8 +31,8 @@ authRouter.get("/auth/google/callback", async (req, res) => {
   const fail = (reason: string) => res.redirect(`${config.WEB_ORIGIN}/?error=${encodeURIComponent(reason)}`);
   try {
     const { code, state, error } = req.query as Record<string, string | undefined>;
-    if (error) return fail(error === "access_denied" ? "Aapne Google permission cancel kar di." : error);
-    if (!code || !state || state !== req.cookies?.[STATE_COOKIE]) return fail("Login verify nahi ho paya, dobara try karo.");
+    if (error) return fail(error === "access_denied" ? "You cancelled the Google permission screen." : error);
+    if (!code || !state || state !== req.cookies?.[STATE_COOKIE]) return fail("Sign-in could not be verified. Please try again.");
     res.clearCookie(STATE_COOKIE, { path: "/" });
 
     const oauth = newOAuthClient();
@@ -40,17 +40,17 @@ authRouter.get("/auth/google/callback", async (req, res) => {
 
     // Google lets users untick individual permissions. Without Gmail access nothing works.
     if (!tokens.scope?.split(" ").includes(GMAIL_SCOPE)) {
-      return fail("Gmail read permission zaroori hai. Login karte waqt Gmail wala checkbox tick karo.");
+      return fail("Gmail read permission is required. Tick the Gmail checkbox when signing in.");
     }
-    if (!tokens.id_token) return fail("Google ne identity token nahi diya.");
+    if (!tokens.id_token) return fail("Google did not return an identity token.");
 
     const ticket = await oauth.verifyIdToken({ idToken: tokens.id_token, audience: config.GOOGLE_CLIENT_ID });
     const p = ticket.getPayload();
-    if (!p?.sub || !p.email) return fail("Google account details nahi mile.");
+    if (!p?.sub || !p.email) return fail("Could not read your Google account details.");
 
     const existing = await users().findOne({ googleId: p.sub });
     const refreshToken = tokens.refresh_token;
-    if (!refreshToken && !existing) return fail("Refresh token nahi mila. Google Account > Security > Third-party access se VaaniMail hatao aur dobara login karo.");
+    if (!refreshToken && !existing) return fail("Google did not return a refresh token. Remove this app under Google Account → Security → Third-party access, then sign in again.");
 
     const now = new Date();
     const result = await users().findOneAndUpdate(
@@ -73,7 +73,7 @@ authRouter.get("/auth/google/callback", async (req, res) => {
       },
       { upsert: true, returnDocument: "after" },
     );
-    if (!result) return fail("User save nahi ho paya.");
+    if (!result) return fail("Could not save your account.");
 
     setSession(res, result._id);
     // Start reading the inbox in the background — the user doesn't wait for it.
@@ -81,7 +81,7 @@ authRouter.get("/auth/google/callback", async (req, res) => {
     res.redirect(`${config.WEB_ORIGIN}/`);
   } catch (err) {
     console.error("OAuth callback error:", err);
-    fail("Login mein problem aayi, dobara try karo.");
+    fail("Sign-in failed. Please try again.");
   }
 });
 

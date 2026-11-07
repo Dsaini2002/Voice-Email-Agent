@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { GeminiKeyStatus } from "../../../shared/types";
 import { api } from "../api";
-import { CheckIcon, CloseIcon, ExternalIcon, ShieldIcon } from "./icons";
+import { CloseIcon, ExternalIcon, ShieldIcon } from "./icons";
 
 interface Props {
   status: GeminiKeyStatus;
@@ -29,7 +29,7 @@ export function GeminiKeyCard({ status, onSaved, onClose }: Props) {
     try {
       const res = await api.saveGeminiKey(key.trim());
       setKey("");
-      setNote(res.warning ?? "Key save ho gayi. Ab aapke emails samjhe ja rahe hain.");
+      setNote(res.warning ?? "Key saved. Your emails are being analysed now.");
       onSaved(res);
     } catch (err) {
       setError((err as Error).message);
@@ -39,11 +39,11 @@ export function GeminiKeyCard({ status, onSaved, onClose }: Props) {
   };
 
   const remove = async () => {
-    if (!window.confirm("Gemini key hata dein? Iske bina naye emails analyse nahi honge.")) return;
+    if (!window.confirm("Remove your Gemini key? New emails will not be analysed without it.")) return;
     setBusy(true);
     try {
       onSaved(await api.deleteGeminiKey());
-      setNote("Key hata di gayi.");
+      setNote("Key removed.");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -51,44 +51,44 @@ export function GeminiKeyCard({ status, onSaved, onClose }: Props) {
     }
   };
 
+  const steps = [
+    <>
+      Open{" "}
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 font-bold text-cy hover:text-cy2">
+        Google AI Studio <ExternalIcon width={13} height={13} />
+      </a>{" "}
+      and sign in.
+    </>,
+    <>Click <b>Create API key</b> and copy it.</>,
+    <>Paste it below and press <b>Save</b>. We test it once, then store it encrypted.</>,
+  ];
+
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-saffron/40 bg-card p-5 shadow-sm sm:p-6" aria-label="Gemini API key">
+    <section className="hud-panel hud-panel-glow hud-corners p-5 sm:p-6" aria-label="Gemini API key">
       {onClose && (
-        <button type="button" onClick={onClose} aria-label="Band karo" className="absolute right-3 top-3 rounded-full p-2 text-ink-soft hover:bg-paper">
+        <button type="button" onClick={onClose} aria-label="Close" className="absolute right-8 top-4 p-2 text-dim hover:text-snow">
           <CloseIcon width={16} height={16} />
         </button>
       )}
 
-      <h2 className="text-lg font-semibold">
-        {status.hasKey ? "Aapki Gemini API key" : "Ek last step: apni free Gemini API key jodo"}
+      <p className="hud-label">{status.hasKey ? "AI engine" : "Setup · final step"}</p>
+      <h2 className="mt-1 text-2xl font-bold text-snow">
+        {status.hasKey ? "Your Gemini API key" : "Connect your own free Gemini API key"}
       </h2>
-      <p className="mt-1 text-sm text-ink-soft">
-        Emails samajhne ke liye AI aapki <b>apni</b> Gemini key se chalta hai, taaki aapka usage sirf aapke account mein gine. Key free milti hai.
+      <p className="mt-1 text-[16px] text-dim">
+        The AI runs on <b className="text-snow">your own</b> Gemini key, so your usage counts only on your account. The key is free.
       </p>
 
       {status.hasKey ? (
-        <p className="mt-4 inline-flex items-center gap-2 rounded-xl bg-teal-soft px-3 py-2 text-sm text-teal">
-          <CheckIcon width={16} height={16} /> Key judi hui hai: •••• {status.last4}
-        </p>
+        <p className="hud-chip mt-4 inline-block text-[12px]">✓ KEY CONNECTED · •••• {status.last4}</p>
       ) : (
-        <ol className="mt-4 space-y-2 text-sm">
-          <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs text-paper">1</span>
-            <span>
-              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 font-medium text-saffron underline-offset-2 hover:underline">
-                Google AI Studio kholo <ExternalIcon width={13} height={13} />
-              </a>{" "}
-              aur apne Google account se login karo.
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs text-paper">2</span>
-            <span><b>"Create API key"</b> dabao aur key copy karo.</span>
-          </li>
-          <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs text-paper">3</span>
-            <span>Neeche paste karke <b>Save</b> dabao. Hum key ek baar check karke encrypted save karte hain.</span>
-          </li>
+        <ol className="mt-4 space-y-2 text-[16px]">
+          {steps.map((s, i) => (
+            <li key={i} className="flex items-start gap-3">
+              <span className="hud-title grid h-6 w-6 shrink-0 place-items-center border border-cy/60 text-[11px] text-cy">{i + 1}</span>
+              <span>{s}</span>
+            </li>
+          ))}
         </ol>
       )}
 
@@ -99,30 +99,30 @@ export function GeminiKeyCard({ status, onSaved, onClose }: Props) {
           type={show ? "text" : "password"}
           value={key}
           onChange={(e) => setKey(e.target.value)}
-          placeholder={status.hasKey ? "Nayi key paste karo (badalne ke liye)" : "AIza… key yahan paste karo"}
+          placeholder={status.hasKey ? "Paste a new key to replace it" : "Paste your key (AIza…)"}
           autoComplete="off"
           spellCheck={false}
-          className="min-w-0 flex-1 rounded-xl border border-line bg-paper px-4 py-2.5 font-mono text-sm outline-none focus:border-saffron"
+          className="hud-input min-w-0 flex-1 font-mono !text-sm"
         />
-        <button type="button" onClick={() => setShow((v) => !v)} className="rounded-xl border border-line px-3 text-sm text-ink-soft hover:bg-paper">
-          {show ? "Chhupao" : "Dikhao"}
+        <button type="button" onClick={() => setShow((v) => !v)} className="hud-btn hud-btn-ghost">
+          {show ? "Hide" : "Show"}
         </button>
-        <button type="submit" disabled={!key.trim() || busy} className="rounded-xl bg-saffron px-5 py-2.5 font-medium text-white disabled:opacity-50">
-          {busy ? "Check ho rahi hai…" : status.hasKey ? "Key badlo" : "Save"}
+        <button type="submit" disabled={!key.trim() || busy} className="hud-btn hud-btn-solid">
+          {busy ? "Checking…" : status.hasKey ? "Replace" : "Save"}
         </button>
         {status.hasKey && (
-          <button type="button" onClick={remove} disabled={busy} className="rounded-xl px-3 text-sm text-danger hover:bg-danger-soft">
-            Key hatao
+          <button type="button" onClick={remove} disabled={busy} className="hud-btn hud-btn-alert">
+            Remove
           </button>
         )}
       </form>
 
-      {error && <p className="mt-3 text-sm text-danger" role="alert">{error}</p>}
-      {note && !error && <p className="mt-3 text-sm text-teal">{note}</p>}
+      {error && <p className="mt-3 text-alert" role="alert">{error}</p>}
+      {note && !error && <p className="mt-3 text-cy2">{note}</p>}
 
-      <p className="mt-4 flex gap-2 text-xs text-ink-soft">
-        <ShieldIcon width={14} height={14} className="mt-0.5 shrink-0" />
-        Key encrypted (AES-256) save hoti hai aur browser ko kabhi wapas nahi bheji jaati. Sirf aakhri 4 akshar dikhte hain. "Delete my data" se key bhi hat jaati hai.
+      <p className="mt-4 flex gap-2 text-[13px] text-dim">
+        <ShieldIcon width={14} height={14} className="mt-0.5 shrink-0 text-cy" />
+        Stored encrypted (AES-256) and never sent back to your browser. Only the last 4 characters are shown. "Delete my data" removes it too.
       </p>
     </section>
   );

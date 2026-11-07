@@ -11,6 +11,7 @@ import { StatusPopups, type Popup } from "./components/StatusPopups";
 import { VoicePanel, type ChatMessage } from "./components/VoicePanel";
 import { useSpeaker } from "./hooks/useSpeaker";
 import { useBackgroundListening } from "./hooks/useSpeechRecognition";
+import { WAKE_WORD } from "./brand";
 import { themeFor } from "./statusTheme";
 
 /** Sections that get their own animated popup. */
@@ -34,7 +35,7 @@ function saveSeen(seen: Set<string>) {
 
 /** Questions that mean "give me the daily briefing" are answered with the full briefing + cards. */
 const BRIEFING_INTENT =
-  /(briefing|aaj.{0,25}(important|zaroori|jaruri|kya aaya|kya hai)|today.{0,20}(important|inbox|mail)|आज.{0,25}(ज़रूरी|जरूरी|इम्पोर्टेंट|क्या आया)|इम्पोर्टेंट|ब्रीफिंग)/i;
+  /(briefing|summary|summarise|summarize|brief me|what('?s| is) (new|important)|anything important|aaj.{0,25}(summary|important|zaroori|jaruri|kya aaya|kya hai)|aaj.{0,25}(important|zaroori|jaruri|kya aaya|kya hai)|today.{0,20}(important|inbox|mail)|आज.{0,25}(ज़रूरी|जरूरी|इम्पोर्टेंट|क्या आया)|इम्पोर्टेंट|ब्रीफिंग)/i;
 
 function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -64,14 +65,14 @@ export default function App() {
   }, []);
 
   if (me === undefined) {
-    return <div className="flex min-h-screen items-center justify-center text-ink-soft">Load ho raha hai…</div>;
+    return <div className="hud-label flex min-h-screen items-center justify-center">Initialising…</div>;
   }
   if (me === null) return <Login error={error} />;
   return <Dashboard me={me} onLoggedOut={() => setMe(null)} />;
 }
 
 function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
-  const [lang, setLang] = useState<Lang>(() => readPref("vm_lang", ["hinglish", "hi", "en"] as const, "hinglish"));
+  const [lang, setLang] = useState<Lang>(() => readPref("vm_lang", ["hinglish", "hi", "en"] as const, "en"));
   const [mode, setMode] = useState<BriefingMode>(() => readPref("vm_mode", ["short", "detailed"] as const, "short"));
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [briefing, setBriefing] = useState<Briefing | null>(null);
@@ -104,7 +105,7 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
       if ((err as { code?: string }).code === "NEEDS_GEMINI_KEY") {
         setKeyStatus((k) => (k ? { ...k, hasKey: false } : k));
       }
-      push({ role: "agent", text: (err as Error).message || "Kuch gadbad ho gayi.", error: true });
+      push({ role: "agent", text: (err as Error).message || "Something went wrong.", error: true });
     },
     [onLoggedOut, push],
   );
@@ -197,14 +198,14 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
   }, [speaker, openItem]);
 
   const listeningHint = !mic.supported
-    ? "Voice ke liye Chrome ya Edge kholo, tab tak type karke poochho."
+    ? "Voice needs Chrome or Edge. You can type commands below."
     : !micOn
-      ? "Mic band hai. Upar left corner ke mic icon se on karo."
+      ? "Mic is off. Turn it on from the mic in the top-left corner."
       : mic.state === "blocked"
-        ? "Mic ki permission do (address bar ka 🔒 icon)."
+        ? "Allow microphone access (lock icon in the address bar)."
         : wakeWord
-          ? "Bolo: \"Vaani, aaj kya important aaya?\""
-          : "Seedha bolo: \"Aaj kya important aaya?\"";
+          ? `Say: "${WAKE_WORD}, what's important today?"`
+          : `Say: "What's important today?"`;
 
   // Poll sync status: fast while working, slow when idle. Refresh cards when analysis finishes.
   useEffect(() => {
@@ -255,14 +256,14 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
     onLoggedOut();
   };
   const deleteData = async () => {
-    if (!window.confirm("Saara VaaniMail data delete ho jaayega aur Google access revoke hoga. Pakka?")) return;
+    if (!window.confirm("This deletes all your data here and revokes Google access. Continue?")) return;
     speaker.stop();
     await api.deleteAccount().catch(() => undefined);
     onLoggedOut();
   };
   const sync = () => {
     api.sync().catch(handleError);
-    setStatus((s) => (s ? { ...s, state: "syncing", message: "Naye emails check kar raha hoon…" } : s));
+    setStatus((s) => (s ? { ...s, state: "syncing", message: "Checking for new email…" } : s));
     window.setTimeout(() => api.status().then(setStatus).catch(() => undefined), 1500);
   };
 
@@ -296,12 +297,13 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
         onDelete={deleteData}
       />
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:py-8">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:py-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Namaste, {me.name.split(" ")[0]}
+          <p className="hud-label">Session active</p>
+          <h1 className="hud-title mt-1 text-3xl font-bold text-snow sm:text-4xl">
+            Welcome back, {me.name.split(" ")[0]}
           </h1>
-          <p className="mt-1 text-ink-soft">Bas bolo. Important emails apne aap popup mein aa jaayenge.</p>
+          <p className="mt-1 text-lg text-dim">Just speak. Important emails appear as alerts on their own.</p>
         </div>
 
         {keyStatus && !keyStatus.hasKey && !keyStatus.serverKeyAllowed && (
@@ -323,7 +325,7 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
           onStopSpeaking={speaker.stop}
           onBriefing={() => {
             speaker.stop();
-            push({ role: "user", text: "Aaj ki briefing" });
+            push({ role: "user", text: "Today's briefing" });
             void loadBriefing(true);
           }}
           onAsk={ask}
@@ -331,26 +333,34 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
         />
 
         {firstSync ? (
-          <div className="rounded-2xl border border-dashed border-line bg-card p-8 text-center">
+          <div className="hud-panel p-8 text-center">
             {status.state === "needs_key" ? (
               <>
-                <p className="font-medium">Emails download ho gaye, ab sirf Gemini key chahiye.</p>
-                <p className="mt-1 text-sm text-ink-soft">Upar apni key jodte hi AI emails samajhna shuru kar dega aur cards yahan aa jaayenge.</p>
+                <p className="hud-label">Awaiting AI key</p>
+                <p className="mt-2 text-xl font-semibold">Your emails are downloaded. Add your Gemini key to start the analysis.</p>
+                <p className="mt-1 text-dim">Cards will appear here as soon as the key is saved.</p>
               </>
             ) : (
               <>
-                <p className="font-medium">Aapka inbox pehli baar padh raha hoon…</p>
-                <p className="mt-1 text-sm text-ink-soft">
-                  {status.message || "Isme 1–3 minute lag sakte hain."} Ye page khula rakho, cards apne aap aa jaayenge.
+                <p className="hud-label">Initial scan</p>
+                <p className="mt-2 text-xl font-semibold">Reading your inbox for the first time…</p>
+                <p className="mt-1 text-dim">
+                  {status.message || "This can take 1–3 minutes."} Keep this page open; cards will appear automatically.
                 </p>
               </>
             )}
           </div>
         ) : briefing ? (
           <div>
-            <h2 className="mb-4 text-lg font-semibold">
-              Pichhle {briefing.windowHours} ghante ki briefing
-            </h2>
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                <p className="hud-label">Intelligence report</p>
+                <h2 className="mt-1 text-2xl font-bold text-snow">Last {briefing.windowHours} hours</h2>
+              </div>
+              <p className="font-mono text-[11px] tracking-[0.12em] text-dim">
+                GENERATED {new Date(briefing.generatedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
             <BriefingView briefing={briefing} onOpen={setOpenItem} />
           </div>
         ) : null}
@@ -363,7 +373,7 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
       />
       {keyModal && keyStatus && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Gemini API key">
-          <button type="button" aria-label="Band karo" onClick={() => setKeyModal(false)} className="backdrop-in absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <button type="button" aria-label="Close" onClick={() => setKeyModal(false)} className="backdrop-in absolute inset-0 bg-[rgba(2,8,20,.72)] backdrop-blur-[3px]" />
           <div className="modal-in relative w-full max-w-xl">
             <GeminiKeyCard status={keyStatus} onSaved={setKeyStatus} onClose={() => setKeyModal(false)} />
           </div>
@@ -371,8 +381,8 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
       )}
       {openItem && <EmailModal item={openItem} onClose={() => setOpenItem(null)} onSpeak={speaker.speak} />}
 
-      <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-ink-soft">
-        VaaniMail AI · Phase 1 · Read-only Gmail access · Har card ka "Verified" tag original email se check hota hai.
+      <footer className="mx-auto max-w-7xl px-4 pb-8 font-mono text-[10.5px] uppercase tracking-[0.14em] text-dim">
+        Phase 1 · Read-only Gmail access · "Verified" = status proven by the original email
       </footer>
     </div>
   );

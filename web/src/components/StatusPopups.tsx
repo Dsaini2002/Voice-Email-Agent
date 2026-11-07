@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BriefingItem } from "../../../shared/types";
 import { themeFor } from "../statusTheme";
-import { CloseIcon, ClockIcon } from "./icons";
+import { CloseIcon } from "./icons";
 import { formatDeadline } from "./ItemCard";
 
 export interface Popup {
@@ -11,20 +11,20 @@ export interface Popup {
 
 const LIFETIME_MS = 9000;
 
-/** Floating, animated status popups (top-right), one per important email. */
+/** Floating HUD notifications (top-right), one per important email. */
 export function StatusPopups({ popups, onDismiss, onOpen }: {
   popups: Popup[];
   onDismiss: (key: number) => void;
   onOpen: (item: BriefingItem) => void;
 }) {
   return (
-    <div className="pointer-events-none fixed right-4 top-20 z-50 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-3" aria-live="polite">
+    <div className="pointer-events-none fixed right-4 top-20 z-50 flex w-[min(390px,calc(100vw-2rem))] flex-col gap-3" aria-live="polite">
       {popups.slice(0, 4).map((p, i) => (
         <PopupCard key={p.key} popup={p} index={i} onDismiss={onDismiss} onOpen={onOpen} />
       ))}
       {popups.length > 4 && (
-        <div className="pointer-events-auto self-end rounded-full bg-ink px-3 py-1 text-xs text-paper shadow">
-          +{popups.length - 4} aur
+        <div className="pointer-events-auto self-end border border-cy/50 bg-void/90 px-3 py-1 font-mono text-[11px] tracking-[0.12em] text-cy">
+          +{popups.length - 4} MORE
         </div>
       )}
     </div>
@@ -41,7 +41,8 @@ function PopupCard({ popup, index, onDismiss, onOpen }: {
   const t = themeFor(item);
   const [paused, setPaused] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const remaining = useRef(LIFETIME_MS + index * 600);
+  const life = LIFETIME_MS + index * 600;
+  const remaining = useRef(life);
   const startedAt = useRef(Date.now());
 
   const close = () => {
@@ -68,41 +69,31 @@ function PopupCard({ popup, index, onDismiss, onOpen }: {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       style={{ animationDelay: `${index * 120}ms` }}
-      className={`popup-in pointer-events-auto relative overflow-hidden rounded-2xl border border-white/40 bg-card/95 shadow-2xl ring-1 ${t.ring} backdrop-blur-xl dark:border-white/10 ${leaving ? "popup-out" : ""}`}
+      className={`popup-in hud-panel hud-panel-glow pointer-events-auto ${leaving ? "popup-out" : ""}`}
     >
-      {/* glow */}
-      <div className={`pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${t.gradient} opacity-25 blur-2xl`} />
-
-      <button type="button" onClick={() => onOpen(item)} className="relative flex w-full gap-3 p-4 pr-10 text-left">
-        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${t.gradient} text-white shadow-lg`}>
-          <t.Icon width={22} height={22} />
+      <button type="button" onClick={() => onOpen(item)} className="flex w-full gap-3 p-4 pr-10 text-left">
+        <span className={`grid h-11 w-11 shrink-0 place-items-center ${t.tile}`}>
+          <t.Icon width={20} height={20} />
         </span>
         <span className="min-w-0">
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${t.badge}`}>{t.label}</span>
-          <span className="mt-1 block truncate font-semibold">{item.entity}</span>
-          <span className="mt-0.5 line-clamp-2 block text-sm text-ink-soft">{item.summary}</span>
-          {dl && (
-            <span className={`mt-1.5 inline-flex items-center gap-1 text-xs font-medium ${dl.urgent ? "text-danger" : "text-ink-soft"}`}>
-              <ClockIcon width={12} height={12} /> {dl.label}
-            </span>
-          )}
+          <span className="flex items-center gap-2">
+            <span className={`hud-tag ${t.tag}`}>{t.label}</span>
+            <span className="font-mono text-[10px] tracking-[0.12em] text-dim">NEW</span>
+          </span>
+          <span className="mt-1 block truncate text-[21px] font-bold leading-tight text-snow">{item.entity}</span>
+          <span className="mt-0.5 line-clamp-2 block text-[15px] leading-snug text-snow/80">{item.summary}</span>
+          {dl && <span className="hud-chip mt-2 inline-block">{dl.label}</span>}
         </span>
       </button>
 
-      <button
-        type="button"
-        onClick={close}
-        aria-label="Popup band karo"
-        className="absolute right-2 top-2 rounded-full p-1.5 text-ink-soft hover:bg-paper hover:text-ink"
-      >
+      <button type="button" onClick={close} aria-label="Dismiss" className="absolute right-6 top-2.5 p-1.5 text-dim hover:text-snow">
         <CloseIcon width={14} height={14} />
       </button>
 
-      {/* life bar */}
-      <div className="h-1 w-full bg-line/60">
+      <div className="h-[3px] w-full bg-line/50">
         <div
           className={`h-full ${t.bar} popup-life`}
-          style={{ animationDuration: `${LIFETIME_MS + index * 600}ms`, animationPlayState: paused ? "paused" : "running" }}
+          style={{ animationDuration: `${life}ms`, animationPlayState: paused ? "paused" : "running", boxShadow: "0 0 8px currentColor" }}
         />
       </div>
     </div>

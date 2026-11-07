@@ -31,7 +31,7 @@ apiRouter.post("/sync", requireAuth, rateLimit({ windowMs: 60_000, limit: 4 }), 
 });
 
 const briefingQuery = z.object({
-  lang: z.enum(LANGS).default("hinglish"),
+  lang: z.enum(LANGS).default("en"),
   mode: z.enum(["short", "detailed"]).default("short"),
   hours: z.coerce.number().min(1).max(24 * 7).default(24),
 });
@@ -46,19 +46,19 @@ apiRouter.get("/briefing", requireAuth, aiLimiter, async (req, res) => {
     res.json(await generateBriefing(req.userId!, q.data.lang, q.data.mode, q.data.hours));
   } catch (err) {
     console.error("Briefing failed:", err);
-    res.status(500).json({ error: "Briefing generate nahi ho payi." });
+    res.status(500).json({ error: "Could not generate the briefing." });
   }
 });
 
 const askBody = z.object({
   question: z.string().trim().min(1).max(500),
-  lang: z.enum(LANGS).default("hinglish"),
+  lang: z.enum(LANGS).default("en"),
 });
 
 apiRouter.post("/ask", requireAuth, aiLimiter, async (req, res) => {
   const b = askBody.safeParse(req.body);
   if (!b.success) {
-    res.status(400).json({ error: "Question khaali hai ya bahut lamba hai." });
+    res.status(400).json({ error: "The question is empty or too long." });
     return;
   }
   try {
@@ -69,7 +69,7 @@ apiRouter.post("/ask", requireAuth, aiLimiter, async (req, res) => {
       return;
     }
     console.error("Ask failed:", err);
-    res.status(500).json({ error: "Abhi jawab nahi de pa raha, thodi der baad try karo." });
+    res.status(500).json({ error: "Could not answer right now. Please try again shortly." });
   }
 });
 
@@ -95,7 +95,7 @@ const keyLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders
 apiRouter.put("/settings/gemini", requireAuth, keyLimiter, async (req, res) => {
   const b = keyBody.safeParse(req.body);
   if (!b.success) {
-    res.status(400).json({ error: "API key khaali hai." });
+    res.status(400).json({ error: "The API key is empty." });
     return;
   }
   const check = await validateGeminiKey(b.data.apiKey);

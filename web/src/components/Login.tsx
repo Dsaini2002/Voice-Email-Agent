@@ -1,49 +1,48 @@
-import { GoogleIcon, LogoMark, ShieldIcon } from "./icons";
+import { AGENT_NAME, TAGLINE } from "../brand";
+import { GoogleIcon, ShieldIcon } from "./icons";
+import { Reactor } from "./Reactor";
 
 export function Login({ error }: { error: string | null }) {
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="flex items-center gap-3 mb-8">
-          <LogoMark />
-          <span className="text-xl font-semibold tracking-tight">VaaniMail AI</span>
+    <main className="flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="grid w-full max-w-5xl items-center gap-10 md:grid-cols-[1fr_auto]">
+        <div>
+          <p className="hud-label">AI email agent for Gmail</p>
+          <h1 className="hud-title mt-3 text-5xl font-bold text-snow sm:text-6xl" style={{ textShadow: "0 0 24px rgba(70,217,255,.45)" }}>
+            {AGENT_NAME}
+          </h1>
+          <p className="mt-3 text-3xl font-semibold text-cy2">{TAGLINE}</p>
+          <p className="mt-4 max-w-lg text-lg text-dim">
+            Turn a hundred emails into a 30-second spoken briefing. Ask in English, Hindi or Hinglish and get answers in the same language.
+          </p>
+
+          {error && (
+            <div role="alert" className="mt-6 max-w-lg border border-alert/50 bg-alert/10 px-4 py-3 text-alert">
+              {error}
+            </div>
+          )}
+
+          <a href="/api/auth/google" className="hud-btn hud-btn-solid mt-8 px-6 py-3 text-base">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-white"><GoogleIcon /></span>
+            Sign in with Google
+          </a>
+
+          <ul className="mt-8 max-w-lg space-y-2.5 text-[15px] text-dim">
+            {[
+              "Read-only Gmail access. Nothing is deleted or sent.",
+              "OTPs, ID numbers and card numbers are masked before AI sees them.",
+              "Your tokens are encrypted. Delete all your data in one click.",
+            ].map((t) => (
+              <li key={t} className="flex gap-2.5">
+                <ShieldIcon className="mt-0.5 shrink-0 text-cy" width={18} height={18} />
+                <span>{t}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-
-        <h1 className="text-4xl font-bold leading-tight tracking-tight">
-          Aapka inbox,
-          <br />
-          <span className="text-saffron">aapki awaaz mein.</span>
-        </h1>
-        <p className="mt-4 text-ink-soft text-lg">
-          100 emails ko 30 second ki briefing mein suno. Hindi, English ya Hinglish mein poochho, jawab wahi milega.
-        </p>
-
-        {error && (
-          <div role="alert" className="mt-6 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
-            {error}
-          </div>
-        )}
-
-        <a
-          href="/api/auth/google"
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl bg-ink px-5 py-3.5 font-medium text-paper shadow-sm transition hover:opacity-90"
-        >
-          <span className="rounded-full bg-white p-1"><GoogleIcon /></span>
-          Google se login karo
-        </a>
-
-        <ul className="mt-8 space-y-3 text-sm text-ink-soft">
-          {[
-            "Sirf read-only Gmail access. Phase 1 mein koi email delete ya send nahi hota.",
-            "OTP, Aadhaar, PAN aur card numbers AI ko bhejne se pehle mask ho jaate hain.",
-            "Google token encrypted save hota hai. 'Delete my data' se sab kuch ek click mein hat jaata hai.",
-          ].map((t) => (
-            <li key={t} className="flex gap-2.5">
-              <ShieldIcon className="mt-0.5 shrink-0 text-teal" width={18} height={18} />
-              <span>{t}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="hidden md:block">
+          <Reactor size={380} sub="SYSTEM ONLINE" active />
+        </div>
       </div>
     </main>
   );
