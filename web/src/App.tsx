@@ -99,6 +99,30 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
     api.geminiKey().then(setKeyStatus).catch(() => undefined);
   }, []);
 
+  // Chrome extension handshake: if the Vaani extension is installed but not yet
+  // connected, give it a personal access token (only via this same window).
+  const [ext, setExt] = useState<"absent" | "connecting" | "connected">("absent");
+  useEffect(() => {
+    const onMsg = async (e: MessageEvent) => {
+      if (e.source !== window || e.origin !== location.origin) return;
+      const m = e.data as { source?: string; type?: string; connected?: boolean };
+      if (m?.source !== "vaani-ext") return;
+      if (m.type === "connected" || (m.type === "hello" && m.connected)) return setExt("connected");
+      if (m.type === "hello" && !m.connected) {
+        setExt("connecting");
+        try {
+          const { token } = await api.connectExtension();
+          window.postMessage({ source: "vaani-web", type: "token", token }, location.origin);
+        } catch {
+          setExt("absent");
+        }
+      }
+    };
+    window.addEventListener("message", onMsg);
+    window.postMessage({ source: "vaani-web", type: "ping" }, location.origin);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
   const handleError = useCallback(
     (err: unknown) => {
       if (err instanceof AuthError) return onLoggedOut();
@@ -306,6 +330,25 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
           <p className="mt-1 text-lg text-dim">Just speak. Important emails appear as alerts on their own.</p>
         </div>
 
+        <div className={`hud-panel flex flex-wrap items-center gap-4 px-5 py-4 ${ext === "connected" ? "hud-panel-glow" : ""}`}>
+          <div className="min-w-0 flex-1">
+            <p className="hud-label">Gmail overlay · Chrome extension</p>
+            {ext === "connected" ? (
+              <p className="mt-1 text-xl font-semibold">Connected. Open Gmail and say "{WAKE_WORD}, give me today's summary".</p>
+            ) : ext === "connecting" ? (
+              <p className="mt-1 text-xl font-semibold">Connecting the extension…</p>
+            ) : (
+              <p className="mt-1 text-lg text-dim">
+                Vaani works <b className="text-snow">inside Gmail</b> through the Chrome extension. Load the <code className="font-mono text-cy2">extension</code> folder
+                in <code className="font-mono text-cy2">chrome://extensions</code> (Developer mode → Load unpacked), then reload this page.
+              </p>
+            )}
+          </div>
+          {ext === "connected" && (
+            <a href="https://mail.google.com/mail/u/0/#inbox" className="hud-btn hud-btn-solid">Open Gmail</a>
+          )}
+        </div>
+
         {keyStatus && !keyStatus.hasKey && !keyStatus.serverKeyAllowed && (
           <GeminiKeyCard
             status={keyStatus}
@@ -382,7 +425,7 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
       {openItem && <EmailModal item={openItem} onClose={() => setOpenItem(null)} onSpeak={speaker.speak} />}
 
       <footer className="mx-auto max-w-7xl px-4 pb-8 font-mono text-[10.5px] uppercase tracking-[0.14em] text-dim">
-        Phase 1 · Read-only Gmail access · "Verified" = status proven by the original email
+        Gmail changes only after your confirmation · "Verified" = status proven by the original email
       </footer>
     </div>
   );

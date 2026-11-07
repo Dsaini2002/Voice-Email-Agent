@@ -61,10 +61,11 @@ if (config.SYNC_MODE === "pubsub" && (!config.GMAIL_PUBSUB_TOPIC || !config.PUBS
 
 export const isProd = config.NODE_ENV === "production";
 
-/** Least-privilege scopes for Phase 1: read-only Gmail access. */
-export const GOOGLE_SCOPES = [
-  "openid",
-  "email",
-  "profile",
-  "https://www.googleapis.com/auth/gmail.readonly",
-];
+export const GMAIL_MODIFY = "https://www.googleapis.com/auth/gmail.modify";
+export const GMAIL_READONLY = "https://www.googleapis.com/auth/gmail.readonly";
+
+/**
+ * gmail.modify = read + move to Trash / change labels. It can NOT permanently
+ * delete or send email. Every change still needs the user's spoken/clicked confirmation.
+ */
+export const GOOGLE_SCOPES = ["openid", "email", "profile", GMAIL_MODIFY];

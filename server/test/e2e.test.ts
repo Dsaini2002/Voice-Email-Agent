@@ -13,6 +13,7 @@ import { fake } from "./fakeDb.js";
 vi.mock("../src/db.js", () => ({
   users: () => fake.users,
   emails: () => fake.emails,
+  actions: () => fake.actions,
   connectDb: async () => undefined,
   closeDb: async () => undefined,
 }));
@@ -52,12 +53,23 @@ const INBOX = [
   msg("m11", "Spammer <x@spam.biz>", "spam", "should be skipped", 1, ["SPAM"]),
 ];
 
+const SPAM_IDS = ["sp1", "sp2", "sp3"];
+const trashed: string[] = [];
+const untrashed: string[] = [];
 const gmailFake = {
   users: {
     getProfile: async () => ({ data: { historyId: "1000", emailAddress: "dinesh@gmail.com" } }),
     messages: {
-      list: async () => ({ data: { messages: INBOX.map((m) => ({ id: m.id })) } }),
-      get: async ({ id }: { id: string }) => ({ data: structuredClone(INBOX.find((m) => m.id === id)) }),
+      list: async (p: { labelIds?: string[] }) =>
+        p?.labelIds?.includes("SPAM")
+          ? { data: { messages: SPAM_IDS.filter((id) => !trashed.includes(id) || untrashed.includes(id)).map((id) => ({ id })) } }
+          : { data: { messages: INBOX.map((m) => ({ id: m.id })) } },
+      trash: async ({ id }: { id: string }) => (trashed.push(id), { data: {} }),
+      untrash: async ({ id }: { id: string }) => (untrashed.push(id), { data: {} }),
+      get: async ({ id }: { id: string }) =>
+        id.startsWith("sp")
+          ? { data: { id, payload: { headers: [{ name: "From", value: "Lottery <win@spam.biz>" }, { name: "Subject", value: "You won!" }] } } }
+          : { data: structuredClone(INBOX.find((m) => m.id === id)) },
     },
     history: { list: async () => ({ data: { historyId: "1001" } }) },
     watch: async () => ({ data: {} }),
@@ -120,6 +132,7 @@ vi.mock("../src/ai/gemini.js", () => ({
 // ---------- Test ----------
 let base = "";
 let cookie = "";
+let extToken = "";
 let close: () => void;
 const userId = new ObjectId();
 
@@ -153,12 +166,13 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     expect((await get("/briefing", false)).status).toBe(401);
   });
 
-  it("starts Google login with read-only Gmail scope and a CSRF state cookie", async () => {
+  it("starts Google login with gmail.modify (no full-delete scope) and a CSRF state cookie", async () => {
     const res = await get("/auth/google", false);
     expect(res.status).toBe(302);
     const loc = new URL(res.headers.get("location")!);
     expect(loc.hostname).toBe("accounts.google.com");
-    expect(loc.searchParams.get("scope")).toContain("gmail.readonly");
+    expect(loc.searchParams.get("scope")).toContain("gmail.modify");
+    expect(loc.searchParams.get("scope")).not.toContain("mail.google.com/");
     expect(loc.searchParams.get("access_type")).toBe("offline");
     expect(res.headers.get("set-cookie")).toMatch(/vm_oauth_state=.*HttpOnly/i);
   });
@@ -281,6 +295,47 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     });
     expect(res.status).toBe(400);
     expect((await get("/briefing?lang=fr")).status).toBe(400);
+  });
+
+  it("connects the Chrome extension with a bearer token (dashboard session required to issue it)", async () => {
+    const res = await fetch(`${base}/ext/connect`, { method: "POST", headers: { cookie } });
+    const { token } = (await res.json()) as { token: string };
+    expect(token.length).toBeGreaterThan(30);
+    const stored = fake.users.docs.find((u) => String(u._id) === String(userId))!;
+    expect(stored.extTokenHash).toBeTruthy();
+    expect(stored.extTokenHash).not.toBe(token); // only the hash is stored
+    extToken = token;
+
+    const st = await fetch(`${base}/ext/status`, { headers: { authorization: `Bearer ${token}` } });
+    expect(await st.json()).toMatchObject({ email: "dinesh@gmail.com" });
+    const br = await fetch(`${base}/briefing`, { headers: { authorization: `Bearer ${token}` } });
+    expect(br.status).toBe(200);
+
+    expect((await fetch(`${base}/ext/status`, { headers: { authorization: "Bearer wrong-token-wrong-token-1234" } })).status).toBe(401);
+    // The extension token cannot mint new tokens or delete the account.
+    expect((await fetch(`${base}/ext/connect`, { method: "POST", headers: { authorization: `Bearer ${token}` } })).status).toBe(401);
+    expect((await fetch(`${base}/account`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } })).status).toBe(401);
+  });
+
+  it("counts spam, needs confirmation, trashes ALL spam in one call, and can undo", async () => {
+    const auth = { authorization: `Bearer ${extToken}`, "Content-Type": "application/json" };
+    const spam = (await (await fetch(`${base}/gmail/spam`, { headers: auth })).json()) as { count: number; preview: { subject: string }[] };
+    expect(spam.count).toBe(3);
+    expect(spam.preview[0].subject).toBe("You won!");
+
+    const noConfirm = await fetch(`${base}/gmail/spam/trash`, { method: "POST", headers: auth, body: JSON.stringify({}) });
+    expect(noConfirm.status).toBe(400);
+    expect(trashed).toHaveLength(0);
+
+    const ok = await fetch(`${base}/gmail/spam/trash`, { method: "POST", headers: auth, body: JSON.stringify({ confirm: true, expectedCount: 3 }) });
+    expect(await ok.json()).toMatchObject({ trashed: 3 });
+    expect(trashed.sort()).toEqual(["sp1", "sp2", "sp3"]);
+    expect(fake.actions.docs).toHaveLength(1);
+
+    const undo = await fetch(`${base}/gmail/undo`, { method: "POST", headers: auth });
+    expect(await undo.json()).toMatchObject({ restored: 3 });
+    expect(untrashed.sort()).toEqual(["sp1", "sp2", "sp3"]);
+    expect((await fetch(`${base}/gmail/undo`, { method: "POST", headers: auth })).status).toBe(404);
   });
 
   it("lets the user remove their key", async () => {

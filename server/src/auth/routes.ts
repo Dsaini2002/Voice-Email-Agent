@@ -1,15 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { Router } from "express";
-import { config, isProd } from "../config.js";
+import { config, GMAIL_MODIFY, GMAIL_READONLY, isProd } from "../config.js";
 import { encrypt } from "../crypto.js";
-import { emails, users } from "../db.js";
+import { actions, emails, users } from "../db.js";
 import { startInitialSync } from "../gmail/sync.js";
 import { stopWatch } from "../gmail/watch.js";
 import { buildAuthUrl, newOAuthClient, revokeUserToken } from "./google.js";
-import { clearSession, requireAuth, setSession } from "./session.js";
+import { clearSession, requireAuth, requireSession, setSession } from "./session.js";
 
 const STATE_COOKIE = "vm_oauth_state";
-const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 
 export const authRouter = Router();
 
@@ -39,8 +38,10 @@ authRouter.get("/auth/google/callback", async (req, res) => {
     const { tokens } = await oauth.getToken(code);
 
     // Google lets users untick individual permissions. Without Gmail access nothing works.
-    if (!tokens.scope?.split(" ").includes(GMAIL_SCOPE)) {
-      return fail("Gmail read permission is required. Tick the Gmail checkbox when signing in.");
+    const granted = tokens.scope?.split(" ") ?? [];
+    const canModify = granted.includes(GMAIL_MODIFY);
+    if (!canModify && !granted.includes(GMAIL_READONLY)) {
+      return fail("Gmail permission is required. Tick the Gmail checkbox when signing in.");
     }
     if (!tokens.id_token) return fail("Google did not return an identity token.");
 
@@ -60,6 +61,7 @@ authRouter.get("/auth/google/callback", async (req, res) => {
           email: p.email,
           name: p.name ?? p.email,
           picture: p.picture ?? "",
+          canModify,
           updatedAt: now,
           ...(refreshToken ? { encRefreshToken: encrypt(refreshToken, config.ENCRYPTION_KEY) } : {}),
         },
@@ -101,12 +103,13 @@ authRouter.get("/me", requireAuth, async (req, res) => {
 });
 
 /** "Delete my data": revoke Google access and remove everything we stored. */
-authRouter.delete("/account", requireAuth, async (req, res) => {
+authRouter.delete("/account", requireSession, async (req, res) => {
   const user = await users().findOne({ _id: req.userId });
   if (user) {
     await stopWatch(user._id!).catch(() => undefined);
     await revokeUserToken(user.encRefreshToken);
     await emails().deleteMany({ userId: user._id });
+    await actions().deleteMany({ userId: user._id });
     await users().deleteOne({ _id: user._id });
   }
   clearSession(res);

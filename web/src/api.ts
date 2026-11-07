@@ -30,6 +30,7 @@ export const api = {
   saveGeminiKey: (apiKey: string) =>
     req<GeminiKeyStatus & { warning: string | null }>("/settings/gemini", { method: "PUT", body: JSON.stringify({ apiKey }) }),
   deleteGeminiKey: () => req<GeminiKeyStatus>("/settings/gemini", { method: "DELETE" }),
+  connectExtension: () => req<{ token: string }>("/ext/connect", { method: "POST" }),
   logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
   deleteAccount: () => req<{ ok: boolean }>("/account", { method: "DELETE" }),
 };

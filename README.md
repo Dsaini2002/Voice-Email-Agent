@@ -12,7 +12,9 @@ Is phase ka goal: **"Aaj kya important aaya?" ka sahi jawab, 30 seconds mein.**
 
 | Feature | Kahan hai code |
 |---|---|
-| Google login (OAuth 2.0, read-only Gmail) | `server/src/auth/` |
+| **Chrome extension: Vaani Gmail ke andar** (transparent JARVIS overlay, mic box, voice commands) | `extension/` |
+| Gmail actions: spam folder kholna, saara spam ek baar mein Trash, Undo | `server/src/routes/actions.ts`, `extension/src/gmail/` |
+| Google login (OAuth 2.0, `gmail.modify`: read + Trash, send/permanent delete nahi) | `server/src/auth/` |
 | Silent Background Intelligence: naye mail aate hi fetch + AI analysis | `server/src/gmail/sync.ts`, `scheduler.ts`, `ai/analyzer.ts` |
 | Gmail Push (Pub/Sub) support + localhost ke liye polling | `server/src/gmail/watch.ts`, `routes/api.ts` (`/api/gmail/push`) |
 | PII Redaction: OTP, Aadhaar, PAN, card, phone, UPI, passwords AI tak nahi jaate | `server/src/privacy/redact.ts` |
@@ -53,6 +55,44 @@ voice-email-agent/
 
 ---
 
+## Vaani Gmail ke andar (Chrome extension)
+
+Vaani **tumhare Gmail tab ke andar hi** chalta hai. Koi naya window ya tab nahi khulta:
+- Gmail kholte hi left-bottom corner mein **Vaani mic box** dikhta hai. Mic background mein chalta rehta hai.
+- Command bolte hi Gmail ke upar ek **transparent JARVIS overlay** aata hai. Peeche Gmail dikhta rehta hai.
+- Folder wale commands **usi Gmail tab** mein folder khol dete hain.
+
+### Install (ek baar)
+1. `npm install` aur `npm run build` chalao. Isse `extension/dist` ban jaayega.
+2. Chrome mein `chrome://extensions` kholo → upar right mein **Developer mode** on karo → **Load unpacked** → `extension` folder chuno.
+3. `npm run dev` chalao → http://localhost:5173 kholo → Google se login karo → Gemini key daalo.
+   Dashboard extension ko **apne aap connect** kar deta hai, aur "Connected" dikhega.
+4. Gmail kholo. Pehli baar Chrome mic ki permission maangega, **Allow** dabao.
+
+### Commands (bolo ya `Alt+V` dabake type karo)
+
+| Bolo | Kya hota hai |
+|---|---|
+| "Vaani, give me today's summary" / "aaj ka summary batao" | Cards **ek-ek karke** left mein aate hain aur Vaani har email bolti hai |
+| "Vaani, show interview emails" / "interview wale message dikhao" | Sirf interview wale cards ki list |
+| "Vaani, TCS ka interview message dikhao" / "open the TCS email" | Us company ka bada detail card |
+| "Vaani, open it in Gmail" | Wahi email **usi tab** mein Gmail mein khul jaata hai |
+| "Vaani, open full window" | Poori screen par transparent overview |
+| "Vaani, open spam" / "spam kholo" | Gmail ka **Spam folder usi tab** mein khulta hai |
+| "Vaani, delete all spam" / "spam ke saare message delete karo" | Saare spam ka count aur preview dikhta hai. "**confirm**" bolte hi **sab ek baar mein** Trash mein chale jaate hain |
+| "Vaani, undo" | Abhi delete kiye gaye emails wapas aa jaate hain |
+| "Vaani, open inbox / sent / drafts / trash / starred / promotions" | Wahi folder usi tab mein |
+| "Vaani, search internship stipend" | Gmail search usi tab mein |
+| "stop" / "ruko" | Bolna turant band |
+| "close" / "band karo" / Esc | Overlay band |
+| Koi bhi sawaal: "Vaani, how many rejections this week?" | AI jawab deta hai, aur related cards dikhta hai |
+
+> Delete hamesha **Trash** mein jaata hai, jahan se Gmail 30 din tak wapas laane deta hai, aur "undo" bhi kaam karta hai. Permanent delete aur email send karna app ke bas mein hi nahi hai.
+
+Settings ke liye Chrome toolbar mein Vaani icon par click karo: mic on/off, wake word, bolne ki bhasha (English / Hindi-Hinglish), aur server URL.
+
+---
+
 ## Ye sabke liye hai: kaun kya deta hai?
 
 | Cheez | Kaun deta hai | Kyun |
@@ -74,7 +114,7 @@ Key ek baar check hoti hai, phir encrypted save hoti hai, aur browser ko kabhi w
 
 - **Option A: Tum server host karo** (Render / Railway / VPS par). Log bas tumhari website kholenge, Google se login karenge aur apni Gemini key daalenge.
   - ⚠️ Google ke **Testing mode** mein sirf 100 "test users" login kar sakte hain, aur unke email Cloud Console mein add karne padte hain.
-  - Sabke liye kholne ke liye Google **app verification** karna padega. `gmail.readonly` ek *restricted scope* hai, isliye ek security assessment (CASA) bhi lag sakta hai.
+  - Sabke liye kholne ke liye Google **app verification** karna padega. `gmail.modify` ek *restricted scope* hai, isliye ek security assessment (CASA) bhi lag sakta hai.
 - **Option B: Har koi khud chalaye (self-host).** Log ye repository clone karenge aur neeche ke setup steps follow karenge. Unke apne Google Cloud credentials aur apni Gemini key hogi.
 
 ---
@@ -95,7 +135,7 @@ Key ek baar check hoti hai, phir encrypted save hoti hai, aur browser ko kabhi w
    - App name: `VaaniMail AI`, support email: apna email → Save.
    - **Audience**: User type **External**, Publishing status **Testing** rehne do.
    - **Test users → Add users** → apna Gmail address daalo. *(Testing mode mein sirf yahi log login kar sakte hain, max 100.)*
-   - **Data Access → Add or remove scopes** → `.../auth/gmail.readonly` add karo → Save.
+   - **Data Access → Add or remove scopes** → `.../auth/gmail.modify` add karo → Save.
 4. **Clients → Create client** (purane UI mein *Credentials → Create Credentials → OAuth client ID*):
    - Application type: **Web application**
    - Authorized JavaScript origins: `http://localhost:5173`
@@ -204,7 +244,9 @@ npm test
 
 21 tests chalte hain, aur inhe credentials ki zarurat nahi hai. Fake Gmail + fake Gemini + in-memory DB ke saath poora flow check hota hai:
 
-- Login redirect mein sirf read-only scope ho, aur OAuth state CSRF check kaam kare
+- Login mein sirf `gmail.modify` maanga jaaye (full-delete wala scope nahi), aur OAuth state CSRF check kaam kare
+- Extension token: sirf hash save hota hai, galat token reject, extension token se account delete ya naya token nahi ban sakta
+- Spam: bina confirm ke delete nahi, confirm par saare spam ek call mein Trash, Undo se wapas
 - Sync → PII redaction ("482913" jaisa OTP AI tak kabhi na pahunche)
 - Truth verification (AI ka galat "offer" claim pakda jaaye)
 - Duplicate merge (2 reminders → 1 card, latest deadline)
@@ -252,7 +294,7 @@ OAuth client mein bhi naya origin aur redirect URI add karna mat bhoolna.
 
 - **Secrets GitHub par nahi jaate:** `.gitignore` saari `.env` files, Google credential JSON aur private keys ko block karta hai. `npm install` ke waqt ek **git pre-commit hook** apne aap on ho jaata hai, jo har commit se pehle API keys, passwords aur `.env` files dhoondhta hai, aur mile to commit rok deta hai. Poori repo khud check karni ho to: `npm run check-secrets`
 - **Bring-your-own Gemini key:** har user ki key AES-256-GCM se encrypted save hoti hai. Browser ko sirf aakhri 4 akshar dikhte hain, aur key ko check karne wale endpoint par 10 tries / 15 min ki limit hai.
-- **Least privilege:** sirf `gmail.readonly`. Phase 1 kuch delete, send ya modify nahi kar sakta.
+- **Least privilege:** `gmail.modify` (padhna + Trash mein bhejna). App email **send nahi kar sakta** aur **permanently delete nahi kar sakta**. Har badlaav se pehle aapka "confirm" zaroori hai, aur Undo milta hai.
 - **Encrypted tokens:** Google refresh token AES-256-GCM se encrypt hokar save hota hai.
 - **Session:** httpOnly + SameSite cookie, signed JWT, 7 din.
 - **OAuth CSRF:** random `state` cookie se verify hota hai.

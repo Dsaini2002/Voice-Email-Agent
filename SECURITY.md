@@ -48,7 +48,9 @@ Uske baad secret ko history se hatana ho to [GitHub ka guide](https://docs.githu
 
 ## 4. App ke andar user data ki suraksha
 
-- Gmail access sirf **read-only** (`gmail.readonly`) hai.
+- Gmail access `gmail.modify` hai: padhna aur Trash mein bhejna. App email **send nahi kar sakta** aur **permanently delete nahi kar sakta**.
+- Spam delete jaisa har action sirf aapke "confirm" ke baad hota hai, `actions` collection mein log hota hai, aur "Undo" se wapas aata hai.
+- Chrome extension ka token sirf extension ke background worker mein rehta hai (Gmail page use nahi padh sakta). Server par sirf uska SHA-256 hash save hota hai. Is token se account delete, Gemini key change ya naya token nahi ban sakta.
 - Google refresh token aur user ki Gemini key **AES-256-GCM** se encrypted save hote hain.
 - OTP, Aadhaar, PAN, card, phone, UPI aur passwords AI ko bhejne aur DB mein save karne se **pehle mask** ho jaate hain.
 - Session httpOnly + SameSite cookie mein rehta hai. Rate limits lage hain: API 120/min, AI 20/min, key check 10 / 15 min.

@@ -29,7 +29,7 @@ export function Login({ error }: { error: string | null }) {
 
           <ul className="mt-8 max-w-lg space-y-2.5 text-[15px] text-dim">
             {[
-              "Read-only Gmail access. Nothing is deleted or sent.",
+              "Works inside Gmail. Nothing is sent, and nothing is deleted without your spoken confirmation.",
               "OTPs, ID numbers and card numbers are masked before AI sees them.",
               "Your tokens are encrypted. Delete all your data in one click.",
             ].map((t) => (

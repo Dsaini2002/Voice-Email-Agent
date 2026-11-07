@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: VOrb; src: url(fonts/orbitron-latin-700-normal.woff2); font-weight: 700; }
+  @font-face { font-family: VRaj; src: url(fonts/rajdhani-latin-600-normal.woff2); font-weight: 600; }
+  @font-face { font-family: VMono; src: url(fonts/jetbrains-mono-latin-500-normal.woff2); }
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 320px; padding: 16px; background: #02060f; color: #f2fbff; font: 600 15px VRaj, "Segoe UI", sans-serif;
+    background-image: linear-gradient(rgba(70,200,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(70,200,255,.06) 1px, transparent 1px); background-size: 24px 24px; }
+  h1 { font: 700 20px VOrb, sans-serif; letter-spacing: .3em; text-shadow: 0 0 14px #46d9ff; }
+  .lbl { font: 11px VMono, monospace; letter-spacing: .14em; color: #46d9ff; text-transform: uppercase; margin-top: 14px; }
+  .box { margin-top: 6px; padding: 10px 12px; border: 1px solid rgba(110,210,255,.3); background: rgba(7,20,40,.8); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .ok { background: #46d9ff; box-shadow: 0 0 8px #46d9ff; } .bad { background: #ff6b6b; box-shadow: 0 0 8px #ff6b6b; }
+  .muted { color: #93aec4; font-weight: 500; font-size: 13px; margin-top: 4px; }
+  label { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  select, input[type=text] { background: #071428; color: #f2fbff; border: 1px solid rgba(110,210,255,.3); padding: 4px 6px; font: inherit; }
+  input[type=text] { width: 100%; margin-top: 6px; font: 12px VMono, monospace; }
+  button { margin-top: 10px; width: 100%; padding: 8px; font: 700 14px VRaj, sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+    color: #02060f; border: 0; background: linear-gradient(90deg, #2a7bff, #46d9ff); }
+  button.ghost { background: transparent; color: #f2fbff; border: 1px solid rgba(110,210,255,.4); }
+  .hint { font: 12px VMono, monospace; color: #9becff; margin-top: 8px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <h1>VAANI</h1>
+  <div class="muted">Voice AI agent for Gmail</div>
+
+  <div class="lbl">Status</div>
+  <div class="box" id="status">Checking…</div>
+
+  <div class="lbl">Voice</div>
+  <div class="box">
+    <label>Microphone on <input type="checkbox" id="micOn" /></label>
+    <label>Wake word "Vaani" <input type="checkbox" id="wakeWord" /></label>
+    <label>I speak
+      <select id="recLang">
+        <option value="en-IN">English (India)</option>
+        <option value="en-US">English (US)</option>
+        <option value="hi-IN">Hindi / Hinglish</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="lbl">Server</div>
+  <div class="box">
+    <input type="text" id="server" spellcheck="false" />
+    <div class="muted">Where your Vaani server runs.</div>
+  </div>
+
+  <button id="dashboard">Open dashboard to connect</button>
+  <button id="disconnect" class="ghost">Disconnect</button>
+
+  <div class="hint">In Gmail say:<br />"Vaani, give me today's summary"<br />"Vaani, open spam"<br />"Vaani, delete all spam"</div>
+  <script type="module" src="dist/popup.js"></script>
+</body>
+</html>

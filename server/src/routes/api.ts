@@ -7,7 +7,7 @@ import { answerQuestion } from "../ai/ask.js";
 import { validateGeminiKey } from "../ai/gemini.js";
 import { MissingGeminiKeyError } from "../ai/keys.js";
 import { generateBriefing } from "../ai/briefing.js";
-import { requireAuth } from "../auth/session.js";
+import { requireAuth, requireSession } from "../auth/session.js";
 import { config } from "../config.js";
 import { encrypt } from "../crypto.js";
 import { users } from "../db.js";
@@ -92,7 +92,7 @@ const keyBody = z.object({ apiKey: z.string().trim().min(1).max(200) });
 // Strict limit: stops anyone using this endpoint to test stolen keys.
 const keyLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
 
-apiRouter.put("/settings/gemini", requireAuth, keyLimiter, async (req, res) => {
+apiRouter.put("/settings/gemini", requireSession, keyLimiter, async (req, res) => {
   const b = keyBody.safeParse(req.body);
   if (!b.success) {
     res.status(400).json({ error: "The API key is empty." });
@@ -118,7 +118,7 @@ apiRouter.put("/settings/gemini", requireAuth, keyLimiter, async (req, res) => {
   res.json({ ...(await keyStatus(req.userId!)), warning: check.warning ?? null });
 });
 
-apiRouter.delete("/settings/gemini", requireAuth, async (req, res) => {
+apiRouter.delete("/settings/gemini", requireSession, async (req, res) => {
   await users().updateOne({ _id: req.userId }, { $set: { encGeminiKey: null, geminiKeyLast4: null } });
   res.json(await keyStatus(req.userId!));
 });

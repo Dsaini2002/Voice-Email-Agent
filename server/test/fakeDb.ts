@@ -60,6 +60,11 @@ class Cursor {
 export class FakeCollection {
   docs: Doc[] = [];
   async createIndex() { return "ok"; }
+  async insertOne(doc: Doc) {
+    const d = { _id: new ObjectId(), ...doc };
+    this.docs.push(d);
+    return { insertedId: d._id };
+  }
   find(q: Doc = {}) { return new Cursor(this.docs.filter((d) => matches(d, q))); }
   async findOne(q: Doc) {
     const d = this.docs.find((x) => matches(x, q));
@@ -99,4 +104,4 @@ export class FakeCollection {
   }
 }
 
-export const fake = { users: new FakeCollection(), emails: new FakeCollection() };
+export const fake = { users: new FakeCollection(), emails: new FakeCollection(), actions: new FakeCollection() };

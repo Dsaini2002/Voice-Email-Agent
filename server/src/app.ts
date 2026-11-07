@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { authRouter } from "./auth/routes.js";
 import { isProd } from "./config.js";
+import { actionsRouter } from "./routes/actions.js";
 import { apiRouter } from "./routes/api.js";
 
 export function createApp() {
@@ -36,6 +37,7 @@ export function createApp() {
   });
   app.use("/api", authRouter);
   app.use("/api", apiRouter);
+  app.use("/api", actionsRouter);
 
   // In production the server also serves the built dashboard (web/dist).
   const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");

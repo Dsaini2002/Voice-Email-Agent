@@ -12,6 +12,10 @@ export interface UserDoc {
   /** User's own Gemini API key, AES-256-GCM encrypted. Never sent back to the browser. */
   encGeminiKey?: string | null;
   geminiKeyLast4?: string | null;
+  /** SHA-256 of the Chrome extension's access token (the token itself is never stored). */
+  extTokenHash?: string | null;
+  /** False if the user only granted read-only Gmail access. */
+  canModify?: boolean;
   /** Gmail history id we have processed up to (for incremental sync). */
   historyId: string | null;
   lastSyncAt: Date | null;
@@ -40,6 +44,16 @@ export interface EmailDoc {
   createdAt: Date;
 }
 
+/** Audit log of every change the agent made in Gmail (used for Undo). */
+export interface ActionDoc {
+  _id?: ObjectId;
+  userId: ObjectId;
+  type: "trash_spam";
+  messageIds: string[];
+  createdAt: Date;
+  undoneAt: Date | null;
+}
+
 let client: MongoClient;
 let db: Db;
 
@@ -51,6 +65,8 @@ export async function connectDb(): Promise<Db> {
   await emails().createIndex({ userId: 1, gmailId: 1 }, { unique: true });
   await emails().createIndex({ userId: 1, date: -1 });
   await emails().createIndex({ userId: 1, analyzedAt: 1 });
+  await users().createIndex({ extTokenHash: 1 }, { sparse: true });
+  await actions().createIndex({ userId: 1, createdAt: -1 });
   return db;
 }
 
@@ -60,3 +76,4 @@ export async function closeDb(): Promise<void> {
 
 export const users = (): Collection<UserDoc> => db.collection<UserDoc>("users");
 export const emails = (): Collection<EmailDoc> => db.collection<EmailDoc>("emails");
+export const actions = (): Collection<ActionDoc> => db.collection<ActionDoc>("actions");
