@@ -3,6 +3,7 @@ import type { Briefing, BriefingMode, Lang } from "../../../shared/types.js";
 import { emails, users } from "../db.js";
 import { buildSections, type AnalyzedEmail } from "../intel/briefingBuilder.js";
 import { generateText } from "./gemini.js";
+import { geminiKeyForUser } from "./keys.js";
 import { briefingPrompt, fallbackSpeech } from "./speech.js";
 
 export const TIMEZONE = process.env.TIMEZONE || "Asia/Kolkata";
@@ -64,7 +65,8 @@ export async function generateBriefing(
   try {
     const firstName = user.name.split(" ")[0] || "dost";
     const { system, prompt } = briefingPrompt(sections, stats, lang, mode, todayLabel(), firstName);
-    speech = await generateText({ system, prompt, temperature: 0.4 });
+    const apiKey = await geminiKeyForUser(userId);
+    speech = await generateText({ apiKey, system, prompt, temperature: 0.4 });
   } catch (err) {
     console.warn("Briefing speech fell back to template:", (err as Error).message);
     speech = fallbackSpeech(sections, stats, lang);

@@ -12,7 +12,9 @@
     "build": "npm run build -w web",
     "start": "npm run start -w server",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
-    "test": "npm run test -w server"
+    "test": "npm run test -w server",
+    "prepare": "node scripts/setup-hooks.mjs",
+    "check-secrets": "node scripts/check-secrets.mjs --all"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"

@@ -9,6 +9,9 @@ export interface UserDoc {
   name: string;
   picture: string;
   encRefreshToken: string;
+  /** User's own Gemini API key, AES-256-GCM encrypted. Never sent back to the browser. */
+  encGeminiKey?: string | null;
+  geminiKeyLast4?: string | null;
   /** Gmail history id we have processed up to (for incremental sync). */
   historyId: string | null;
   lastSyncAt: Date | null;

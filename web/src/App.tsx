@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Briefing, BriefingItem, BriefingMode, Lang, Me, SectionKey, SyncStatus } from "../../shared/types";
+import type { Briefing, BriefingItem, BriefingMode, GeminiKeyStatus, Lang, Me, SectionKey, SyncStatus } from "../../shared/types";
 import { api, AuthError } from "./api";
 import { BriefingView } from "./components/BriefingView";
 import { EmailModal } from "./components/EmailModal";
+import { GeminiKeyCard } from "./components/GeminiKeyCard";
 import { Header } from "./components/Header";
 import { Login } from "./components/Login";
 import { MicDock } from "./components/MicDock";
@@ -78,6 +79,8 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
   const [busy, setBusy] = useState(false);
   const [popups, setPopups] = useState<Popup[]>([]);
   const [openItem, setOpenItem] = useState<BriefingItem | null>(null);
+  const [keyStatus, setKeyStatus] = useState<GeminiKeyStatus | null>(null);
+  const [keyModal, setKeyModal] = useState(false);
   const [micOn, setMicOn] = useState(() => readPref("vm_mic", ["on", "off"] as const, "on") === "on");
   const [wakeWord, setWakeWord] = useState(() => readPref("vm_wake", ["on", "off"] as const, "on") === "on");
   const msgId = useRef(0);
@@ -91,9 +94,16 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
     setMessages((list) => [...list, { ...m, id: ++msgId.current }]);
   }, []);
 
+  useEffect(() => {
+    api.geminiKey().then(setKeyStatus).catch(() => undefined);
+  }, []);
+
   const handleError = useCallback(
     (err: unknown) => {
       if (err instanceof AuthError) return onLoggedOut();
+      if ((err as { code?: string }).code === "NEEDS_GEMINI_KEY") {
+        setKeyStatus((k) => (k ? { ...k, hasKey: false } : k));
+      }
       push({ role: "agent", text: (err as Error).message || "Kuch gadbad ho gayi.", error: true });
     },
     [onLoggedOut, push],
@@ -282,6 +292,7 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
         onMode={changeMode}
         onSync={sync}
         onLogout={logout}
+        onGeminiKey={() => setKeyModal(true)}
         onDelete={deleteData}
       />
 
@@ -292,6 +303,16 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
           </h1>
           <p className="mt-1 text-ink-soft">Bas bolo. Important emails apne aap popup mein aa jaayenge.</p>
         </div>
+
+        {keyStatus && !keyStatus.hasKey && !keyStatus.serverKeyAllowed && (
+          <GeminiKeyCard
+            status={keyStatus}
+            onSaved={(s) => {
+              setKeyStatus(s);
+              api.status().then(setStatus).catch(() => undefined);
+            }}
+          />
+        )}
 
         <VoicePanel
           speaking={speaker.speaking}
@@ -311,10 +332,19 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
 
         {firstSync ? (
           <div className="rounded-2xl border border-dashed border-line bg-card p-8 text-center">
-            <p className="font-medium">Aapka inbox pehli baar padh raha hoon…</p>
-            <p className="mt-1 text-sm text-ink-soft">
-              {status.message || "Isme 1–3 minute lag sakte hain."} Ye page khula rakho, cards apne aap aa jaayenge.
-            </p>
+            {status.state === "needs_key" ? (
+              <>
+                <p className="font-medium">Emails download ho gaye, ab sirf Gemini key chahiye.</p>
+                <p className="mt-1 text-sm text-ink-soft">Upar apni key jodte hi AI emails samajhna shuru kar dega aur cards yahan aa jaayenge.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">Aapka inbox pehli baar padh raha hoon…</p>
+                <p className="mt-1 text-sm text-ink-soft">
+                  {status.message || "Isme 1–3 minute lag sakte hain."} Ye page khula rakho, cards apne aap aa jaayenge.
+                </p>
+              </>
+            )}
           </div>
         ) : briefing ? (
           <div>
@@ -331,6 +361,14 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
         onDismiss={(key) => setPopups((cur) => cur.filter((p) => p.key !== key))}
         onOpen={setOpenItem}
       />
+      {keyModal && keyStatus && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Gemini API key">
+          <button type="button" aria-label="Band karo" onClick={() => setKeyModal(false)} className="backdrop-in absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="modal-in relative w-full max-w-xl">
+            <GeminiKeyCard status={keyStatus} onSaved={setKeyStatus} onClose={() => setKeyModal(false)} />
+          </div>
+        </div>
+      )}
       {openItem && <EmailModal item={openItem} onClose={() => setOpenItem(null)} onSpeak={speaker.speak} />}
 
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-ink-soft">

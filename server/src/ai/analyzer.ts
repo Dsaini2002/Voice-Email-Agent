@@ -2,6 +2,7 @@ import type { ObjectId } from "mongodb";
 import { emails } from "../db.js";
 import { setStatus } from "../status.js";
 import { classifyBatch } from "./classify.js";
+import { geminiKeyForUser, MissingGeminiKeyError } from "./keys.js";
 
 const BATCH_SIZE = 8;
 const running = new Set<string>();
@@ -15,6 +16,20 @@ export async function analyzePending(userId: ObjectId): Promise<void> {
   if (running.has(key)) return;
   running.add(key);
   try {
+    let apiKey: string;
+    try {
+      apiKey = await geminiKeyForUser(userId);
+    } catch (err) {
+      if (err instanceof MissingGeminiKeyError) {
+        const waiting = await emails().countDocuments({ userId, analyzedAt: null, analysisError: null });
+        setStatus(userId, {
+          state: "needs_key",
+          message: `${waiting} emails AI analysis ka intezaar kar rahe hain. Apni Gemini API key jodo.`,
+        });
+        return;
+      }
+      throw err;
+    }
     for (;;) {
       const pending = await emails()
         .find({ userId, analyzedAt: null, analysisError: null })
@@ -37,6 +52,7 @@ export async function analyzePending(userId: ObjectId): Promise<void> {
             gmailLabels: e.labelIds,
             body: e.bodyRedacted,
           })),
+          apiKey,
         );
       } catch (err) {
         // Leave emails pending; the next scheduler tick retries.

@@ -1,4 +1,6 @@
-# VaaniMail AI: Phase 1 (MVP)
+# voice-email-agent: Phase 1 (MVP)
+
+> Multilingual voice AI agent for Gmail: 30-second briefings in Hindi, English & Hinglish.
 
 **Aapka inbox, aapki awaaz mein.** Ek multilingual voice email agent jo Gmail padhta hai, emails ko group karta hai, spam/promo chhupata hai, aur Hindi / English / Hinglish mein 30 second ki briefing deta hai.
 
@@ -24,12 +26,14 @@ Is phase ka goal: **"Aaj kya important aaya?" ka sahi jawab, 30 seconds mein.**
 | Status popups (Shortlisted / Interview / Offer…) + detail window | `web/src/components/StatusPopups.tsx`, `EmailModal.tsx`, `statusTheme.ts` |
 | Voice output (browser built-in, Hindi/English/Hinglish) | `web/src/hooks/useSpeaker.ts` |
 | Dashboard: briefing cards, Verified tag, Gmail links, Stop button, Esc | `web/src/` |
+| **Bring-your-own Gemini key**: har user apni key daalta hai (encrypted save) | `server/src/ai/keys.ts`, `web/src/components/GeminiKeyCard.tsx` |
+| **Secret protection**: commit se pehle API keys / .env automatically block | `scripts/check-secrets.mjs`, `.githooks/pre-commit` |
 | "Delete my data": Google access revoke + sab data delete | `server/src/auth/routes.ts` |
 
 **Tech:** TypeScript everywhere. Backend: Node.js + Express. Frontend: React + Vite + Tailwind. Database: MongoDB. AI: Google Gemini.
 
 ```
-vaanimail-ai/
+voice-email-agent/
 ├── shared/types.ts        ← server aur web dono ke common types
 ├── server/                ← Express API + background sync + AI
 │   ├── src/
@@ -40,8 +44,38 @@ vaanimail-ai/
 │   │   ├── privacy/       PII redaction
 │   │   └── routes/        /api endpoints
 │   └── test/              unit + end-to-end tests (credentials ki zarurat nahi)
-└── web/                   React dashboard (voice UI)
+├── web/                   React dashboard (voice UI)
+├── design/                Phase 2 ka JARVIS-style HUD design file
+├── scripts/               secret scanner + git hook setup
+├── .githooks/pre-commit   har commit se pehle secret check
+└── SECURITY.md            secrets ke rules + leak ho jaaye to kya karein
 ```
+
+---
+
+## Ye sabke liye hai: kaun kya deta hai?
+
+| Cheez | Kaun deta hai | Kyun |
+|---|---|---|
+| Google OAuth Client ID/Secret | **App chalane wala (server owner)**, ek baar | Isse "Google se login" ka button chalta hai. Har user apne Google account se login karta hai. Iska koi kharcha nahi hai. |
+| **Gemini API key** | **Har user khud** (dashboard mein) | AI ka usage har user ki apni free key par chalta hai. Owner ki key kisi aur ke liye use nahi hoti. |
+| MongoDB, ENCRYPTION_KEY, SESSION_SECRET | Server owner | Server ka data aur security |
+
+Pehli baar login karne par dashboard par **"Apni free Gemini API key jodo"** card dikhta hai, jisme 3 steps hain:
+1. aistudio.google.com/apikey kholo.
+2. **Create API key** dabao aur key copy karo.
+3. Key paste karke **Save** dabao.
+
+Key ek baar check hoti hai, phir encrypted save hoti hai, aur browser ko kabhi wapas nahi bheji jaati. Baad mein key badalni ya hatani ho to account menu mein **"Gemini API key"** option hai.
+
+> **Sirf apne personal use ke liye?** `server/.env` mein `ALLOW_SERVER_GEMINI_KEY=true` aur `GEMINI_API_KEY=...` daal do. Tab dashboard mein key daalne ki zarurat nahi padegi. Agar doosre log bhi tumhare server par login karte hain, to isse **`false`** hi rakhna, warna sabka usage tumhari key par jaayega.
+
+### Doosre log kaise use karenge?
+
+- **Option A: Tum server host karo** (Render / Railway / VPS par). Log bas tumhari website kholenge, Google se login karenge aur apni Gemini key daalenge.
+  - ⚠️ Google ke **Testing mode** mein sirf 100 "test users" login kar sakte hain, aur unke email Cloud Console mein add karne padte hain.
+  - Sabke liye kholne ke liye Google **app verification** karna padega. `gmail.readonly` ek *restricted scope* hai, isliye ek security assessment (CASA) bhi lag sakta hai.
+- **Option B: Har koi khud chalaye (self-host).** Log ye repository clone karenge aur neeche ke setup steps follow karenge. Unke apne Google Cloud credentials aur apni Gemini key hogi.
 
 ---
 
@@ -70,7 +104,7 @@ vaanimail-ai/
 
 ### 2. Gemini API key
 
-https://aistudio.google.com/apikey → **Create API key** → copy karo. Free tier kaafi hai Phase 1 ke liye.
+Kuch karne ki zarurat nahi hai. Har user login ke baad **dashboard mein apni key khud daalta hai**, upar dekho. *(Sirf personal use ke liye `ALLOW_SERVER_GEMINI_KEY=true` set kar sakte ho.)*
 
 ### 3. MongoDB (dono mein se ek)
 
@@ -99,7 +133,6 @@ Ab `server/.env` kholo aur ye values bharo:
 ```
 GOOGLE_CLIENT_ID=...         (step 1)
 GOOGLE_CLIENT_SECRET=...     (step 1)
-GEMINI_API_KEY=...           (step 2)
 MONGODB_URI=...              (step 3)
 ENCRYPTION_KEY=...           (64 hex characters)
 SESSION_SECRET=...
@@ -112,7 +145,7 @@ npm install
 npm run dev
 ```
 
-Browser mein **http://localhost:5173** kholo → **Google se login karo**.
+Browser mein **http://localhost:5173** kholo → **Google se login karo** → dashboard par **apni Gemini key daalo**.
 
 > Google ek screen dikhayega: *"Google hasn't verified this app"*. Ye testing mode mein normal hai. **Continue** dabao. Phir Gmail wala checkbox **tick** karke allow karo.
 
@@ -215,6 +248,10 @@ OAuth client mein bhi naya origin aur redirect URI add karna mat bhoolna.
 
 ## Security, ek nazar mein
 
+> Poori details: **[SECURITY.md](SECURITY.md)**
+
+- **Secrets GitHub par nahi jaate:** `.gitignore` saari `.env` files, Google credential JSON aur private keys ko block karta hai. `npm install` ke waqt ek **git pre-commit hook** apne aap on ho jaata hai, jo har commit se pehle API keys, passwords aur `.env` files dhoondhta hai, aur mile to commit rok deta hai. Poori repo khud check karni ho to: `npm run check-secrets`
+- **Bring-your-own Gemini key:** har user ki key AES-256-GCM se encrypted save hoti hai. Browser ko sirf aakhri 4 akshar dikhte hain, aur key ko check karne wale endpoint par 10 tries / 15 min ki limit hai.
 - **Least privilege:** sirf `gmail.readonly`. Phase 1 kuch delete, send ya modify nahi kar sakta.
 - **Encrypted tokens:** Google refresh token AES-256-GCM se encrypt hokar save hota hai.
 - **Session:** httpOnly + SameSite cookie, signed JWT, 7 din.

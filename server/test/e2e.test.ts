@@ -94,9 +94,11 @@ function fakeClassify(e: { id: string; from: string; subject: string; body: stri
   return base;
 }
 
+const keysUsed = new Set<string>();
 vi.mock("../src/ai/gemini.js", () => ({
-  generateJSON: vi.fn(async ({ prompt }: { prompt: string }) => {
+  generateJSON: vi.fn(async ({ prompt, apiKey }: { prompt: string; apiKey: string }) => {
     prompts.push(prompt);
+    keysUsed.add(apiKey);
     if (prompt.includes("Analyze these")) {
       const emails = JSON.parse(prompt.slice(prompt.indexOf("\n\n") + 2));
       return { results: emails.map(fakeClassify) };
@@ -106,6 +108,9 @@ vi.mock("../src/ai/gemini.js", () => ({
     }
     throw new Error("unexpected prompt");
   }),
+  validateGeminiKey: vi.fn(async (key: string) =>
+    key === "test-user-own-gemini-key-XYZ9" ? { ok: true } : { ok: false, reason: "Google ne is key ko reject kar diya." },
+  ),
   generateText: vi.fn(async ({ prompt }: { prompt: string }) => {
     prompts.push(prompt);
     return "Namaste Dinesh! Infosys ne shortlist kiya hai. TCS ka interview hai.";
@@ -164,11 +169,54 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     expect(res.headers.get("location")).toContain("error=");
   });
 
-  it("syncs the inbox, redacts PII and analyzes every email", async () => {
+  it("does not use any AI until the user adds their OWN Gemini key", async () => {
     const { startInitialSync } = await import("../src/gmail/sync.js");
     await startInitialSync(userId);
 
     const status = (await (await get("/status")).json()) as SyncStatus;
+    expect(status.totalStored).toBe(10);
+    expect(status.state).toBe("needs_key");
+    expect(status.pending).toBe(10);
+    expect(prompts).toHaveLength(0);
+
+    const ask = await fetch(`${base}/ask`, {
+      method: "POST",
+      headers: { cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "Kya aaya?" }),
+    });
+    expect(ask.status).toBe(400);
+    expect(((await ask.json()) as { code: string }).code).toBe("NEEDS_GEMINI_KEY");
+  });
+
+  it("rejects an invalid key and saves a valid one encrypted (never returned in full)", async () => {
+    const put = (apiKey: string) =>
+      fetch(`${base}/settings/gemini`, {
+        method: "PUT",
+        headers: { cookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey }),
+      });
+    expect((await put("AIzaWrongKey")).status).toBe(400);
+
+    const ok = await put("test-user-own-gemini-key-XYZ9");
+    expect(ok.status).toBe(200);
+    const body = await ok.text();
+    expect(body).not.toContain("test-user-own-gemini");
+    expect(JSON.parse(body)).toMatchObject({ hasKey: true, last4: "XYZ9", serverKeyAllowed: false });
+
+    const stored = fake.users.docs.find((u) => String(u._id) === String(userId))!;
+    expect(stored.encGeminiKey).toBeTruthy();
+    expect(stored.encGeminiKey).not.toContain("test-user-own-gemini");
+  });
+
+  it("then syncs the inbox, redacts PII and analyzes every email with the user's key", async () => {
+    // Saving the key starts analysis in the background — wait for it.
+    let status: SyncStatus;
+    for (let i = 0; ; i++) {
+      status = (await (await get("/status")).json()) as SyncStatus;
+      if (status.pending === 0 || i > 50) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect([...keysUsed]).toEqual(["test-user-own-gemini-key-XYZ9"]);
     expect(status.totalStored).toBe(10); // spam message skipped
     expect(status.pending).toBe(0);
     expect(status.state).toBe("idle");
@@ -233,6 +281,11 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     });
     expect(res.status).toBe(400);
     expect((await get("/briefing?lang=fr")).status).toBe(400);
+  });
+
+  it("lets the user remove their key", async () => {
+    const res = await fetch(`${base}/settings/gemini`, { method: "DELETE", headers: { cookie } });
+    expect(await res.json()).toMatchObject({ hasKey: false, last4: null });
   });
 
   it("deletes all user data on request", async () => {

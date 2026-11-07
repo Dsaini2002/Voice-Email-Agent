@@ -13,6 +13,7 @@ interface Props {
   onMode: (m: BriefingMode) => void;
   onSync: () => void;
   onLogout: () => void;
+  onGeminiKey: () => void;
   onDelete: () => void;
 }
 
@@ -20,7 +21,7 @@ function StatusPill({ status }: { status: SyncStatus | null }) {
   if (!status) return null;
   const working = status.state === "syncing" || status.state === "analyzing";
   const color =
-    status.state === "error" ? "bg-danger" : working ? "bg-saffron animate-pulse" : "bg-teal";
+    status.state === "error" || status.state === "needs_key" ? "bg-danger" : working ? "bg-saffron animate-pulse" : "bg-teal";
   const text =
     status.message ||
     (status.lastSyncAt
@@ -100,6 +101,9 @@ export function Header(p: Props) {
               <div className="absolute right-0 mt-2 w-64 rounded-xl border border-line bg-card p-2 text-sm shadow-lg" role="menu">
                 <p className="px-2 py-1.5 font-medium">{p.me.name}</p>
                 <p className="truncate px-2 pb-2 text-xs text-ink-soft">{p.me.email}</p>
+                <button type="button" role="menuitem" onClick={() => { setMenu(false); p.onGeminiKey(); }} className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-paper">
+                  Gemini API key
+                </button>
                 <button type="button" role="menuitem" onClick={p.onLogout} className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-paper">
                   Logout
                 </button>

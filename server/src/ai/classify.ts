@@ -112,7 +112,7 @@ const itemSchema = z.object({
 const BODY_CHARS_FOR_AI = 1500;
 
 /** Classifies up to ~8 emails in ONE Gemini call (saves free-tier quota). */
-export async function classifyBatch(batch: EmailForAI[]): Promise<Map<string, EmailAnalysis>> {
+export async function classifyBatch(batch: EmailForAI[], apiKey: string): Promise<Map<string, EmailAnalysis>> {
   const payload = batch.map((e) => ({
     id: e.id,
     from: e.from,
@@ -123,6 +123,7 @@ export async function classifyBatch(batch: EmailForAI[]): Promise<Map<string, Em
   }));
 
   const raw = await generateJSON<{ results: unknown[] }>({
+    apiKey,
     system: SYSTEM,
     prompt: `Analyze these ${batch.length} emails. Return exactly one result per id.\n\n${JSON.stringify(payload, null, 1)}`,
     jsonSchema: responseSchema,

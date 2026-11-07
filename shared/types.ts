@@ -121,13 +121,22 @@ export interface AskResponse {
 }
 
 export interface SyncStatus {
-  state: "idle" | "syncing" | "analyzing" | "error";
+  state: "idle" | "syncing" | "analyzing" | "error" | "needs_key";
   message: string;
   totalStored: number;
   analyzed: number;
   pending: number;
   lastSyncAt: string | null;
   mode: "poll" | "pubsub";
+}
+
+export interface GeminiKeyStatus {
+  /** The user has saved their own Gemini key. */
+  hasKey: boolean;
+  /** Last 4 characters only — the full key is never sent to the browser. */
+  last4: string | null;
+  /** Server owner allows using the server's key when a user has none (self-host mode). */
+  serverKeyAllowed: boolean;
 }
 
 export interface Me {

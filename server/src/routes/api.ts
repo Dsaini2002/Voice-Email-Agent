@@ -1,10 +1,15 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
+import type { GeminiKeyStatus } from "../../../shared/types.js";
+import { analyzePending } from "../ai/analyzer.js";
 import { answerQuestion } from "../ai/ask.js";
+import { validateGeminiKey } from "../ai/gemini.js";
+import { MissingGeminiKeyError } from "../ai/keys.js";
 import { generateBriefing } from "../ai/briefing.js";
 import { requireAuth } from "../auth/session.js";
 import { config } from "../config.js";
+import { encrypt } from "../crypto.js";
 import { users } from "../db.js";
 import { getSyncStatus, incrementalSync, startInitialSync } from "../gmail/sync.js";
 
@@ -59,9 +64,63 @@ apiRouter.post("/ask", requireAuth, aiLimiter, async (req, res) => {
   try {
     res.json(await answerQuestion(req.userId!, b.data.question, b.data.lang));
   } catch (err) {
+    if (err instanceof MissingGeminiKeyError) {
+      res.status(400).json({ error: err.message, code: err.code });
+      return;
+    }
     console.error("Ask failed:", err);
     res.status(500).json({ error: "Abhi jawab nahi de pa raha, thodi der baad try karo." });
   }
+});
+
+// ---------- Bring-your-own Gemini key ----------
+
+async function keyStatus(userId: import("mongodb").ObjectId): Promise<GeminiKeyStatus> {
+  const u = await users().findOne({ _id: userId }, { projection: { encGeminiKey: 1, geminiKeyLast4: 1 } });
+  return {
+    hasKey: Boolean(u?.encGeminiKey),
+    last4: u?.geminiKeyLast4 ?? null,
+    serverKeyAllowed: config.ALLOW_SERVER_GEMINI_KEY,
+  };
+}
+
+apiRouter.get("/settings/gemini", requireAuth, async (req, res) => {
+  res.json(await keyStatus(req.userId!));
+});
+
+const keyBody = z.object({ apiKey: z.string().trim().min(1).max(200) });
+// Strict limit: stops anyone using this endpoint to test stolen keys.
+const keyLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+
+apiRouter.put("/settings/gemini", requireAuth, keyLimiter, async (req, res) => {
+  const b = keyBody.safeParse(req.body);
+  if (!b.success) {
+    res.status(400).json({ error: "API key khaali hai." });
+    return;
+  }
+  const check = await validateGeminiKey(b.data.apiKey);
+  if (!check.ok) {
+    res.status(400).json({ error: check.reason });
+    return;
+  }
+  await users().updateOne(
+    { _id: req.userId },
+    {
+      $set: {
+        encGeminiKey: encrypt(b.data.apiKey, config.ENCRYPTION_KEY),
+        geminiKeyLast4: b.data.apiKey.slice(-4),
+        updatedAt: new Date(),
+      },
+    },
+  );
+  // Start analysing emails that were waiting for a key.
+  void analyzePending(req.userId!);
+  res.json({ ...(await keyStatus(req.userId!)), warning: check.warning ?? null });
+});
+
+apiRouter.delete("/settings/gemini", requireAuth, async (req, res) => {
+  await users().updateOne({ _id: req.userId }, { $set: { encGeminiKey: null, geminiKeyLast4: null } });
+  res.json(await keyStatus(req.userId!));
 });
 
 /**

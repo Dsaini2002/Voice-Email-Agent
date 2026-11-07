@@ -4,6 +4,7 @@ import { users } from "../db.js";
 import { gmailUrl } from "../intel/briefingBuilder.js";
 import { loadAnalyzed, todayLabel } from "./briefing.js";
 import { generateJSON } from "./gemini.js";
+import { geminiKeyForUser } from "./keys.js";
 import { LANG_RULES, SPEECH_STYLE } from "./speech.js";
 
 const CONTEXT_DAYS = 7;
@@ -17,6 +18,7 @@ const MAX_CONTEXT = 120;
 export async function answerQuestion(userId: ObjectId, question: string, lang: Lang): Promise<AskResponse> {
   const user = await users().findOne({ _id: userId });
   if (!user) throw new Error("User not found");
+  const apiKey = await geminiKeyForUser(userId); // throws MissingGeminiKeyError → 400 for the UI
 
   const list = (await loadAnalyzed(userId, CONTEXT_DAYS * 24)).slice(0, MAX_CONTEXT);
   const context = list.map((e) => ({
@@ -50,6 +52,7 @@ ${JSON.stringify(context)}
 User question: "${question.replace(/"/g, "'").slice(0, 500)}"`;
 
   const res = await generateJSON<{ answer: string; refIds: string[] }>({
+    apiKey,
     system,
     prompt,
     temperature: 0.3,

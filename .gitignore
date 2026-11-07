@@ -1,4 +1,35 @@
+# ---------- Dependencies & build ----------
 node_modules/
 dist/
+coverage/
+*.tsbuildinfo
+
+# ---------- SECRETS: never commit these ----------
+# Environment files (only the .example template is allowed)
 .env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Google credentials downloaded from Cloud Console
+client_secret*.json
+credentials*.json
+*service-account*.json
+*-sa-key*.json
+token*.json
+
+# Private keys & certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ---------- Logs & OS junk ----------
 *.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
