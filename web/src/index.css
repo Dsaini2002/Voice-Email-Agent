@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", "Noto Sans Devanagari", "Nirmala UI", system-ui, sans-serif;
+
+  --color-ink: #1d1b3a;
+  --color-ink-soft: #4b4870;
+  --color-paper: #faf7f2;
+  --color-card: #ffffff;
+  --color-line: #ebe5da;
+  --color-saffron: #e8772e;
+  --color-saffron-soft: #fdebdc;
+  --color-teal: #0f9488;
+  --color-teal-soft: #d8f3ef;
+  --color-danger: #c2410c;
+  --color-danger-soft: #fde7dc;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --color-ink: #f1eee8;
+      --color-ink-soft: #b9b4cc;
+      --color-paper: #13121f;
+      --color-card: #1c1a2c;
+      --color-line: #2d2a42;
+      --color-saffron: #f59e3b;
+      --color-saffron-soft: #3a2614;
+      --color-teal: #2dd4bf;
+      --color-teal-soft: #11302d;
+      --color-danger: #fb923c;
+      --color-danger-soft: #3b1d10;
+    }
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-saffron);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.mic-ring::before,
+.mic-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--color-saffron);
+  animation: ring 1.6s ease-out infinite;
+  z-index: -1;
+}
+.mic-ring::after {
+  animation-delay: 0.8s;
+}
+
+@keyframes bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+.wave span {
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  margin: 0 1px;
+  border-radius: 2px;
+  background: currentColor;
+  animation: bar 0.9s ease-in-out infinite;
+}
+.wave span:nth-child(2) { animation-delay: 0.15s; }
+.wave span:nth-child(3) { animation-delay: 0.3s; }
+.wave span:nth-child(4) { animation-delay: 0.45s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-ring::before, .mic-ring::after, .wave span { animation: none; }
+}
+
+/* ---------- Status popups & modal ---------- */
+@keyframes popup-in {
+  0% { opacity: 0; transform: translateX(40px) scale(0.92); filter: blur(6px); }
+  60% { opacity: 1; transform: translateX(-4px) scale(1.01); filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes popup-out {
+  to { opacity: 0; transform: translateX(40px) scale(0.95); }
+}
+@keyframes life {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@keyframes caption-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes live-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.popup-in { animation: popup-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.popup-out { animation: popup-out 0.22s ease-in forwards; }
+.popup-life { transform-origin: left; animation: life linear forwards; }
+.caption-in { animation: caption-in 0.2s ease-out both; }
+.modal-in { animation: modal-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+.backdrop-in { animation: fade-in 0.2s ease-out both; }
+.live-dot { animation: live-dot 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-in, .popup-out, .caption-in, .modal-in, .backdrop-in, .live-dot { animation: none; }
+}
