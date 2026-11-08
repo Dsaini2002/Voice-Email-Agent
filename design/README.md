@@ -5,6 +5,6 @@
   - Colours, transparency, mic position, card size, core size: the `:root` block ("EDIT THE DESIGN HERE")
   - Agent name / wake word: `AGENT_NAME`, `WAKE_WORD`
   - Sample cards: `const DATA`
-- `01-idle.png` … `05-full.png`: screenshots of the current design.
+- `01-idle.jpg` … `05-full.jpg`: screenshots of the current design.
 
 Fonts (Orbitron, Rajdhani, JetBrains Mono) are embedded in the file, so it works offline.

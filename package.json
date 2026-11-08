@@ -1,8 +1,8 @@
 {
-  "name": "voice-email-agent",
-  "version": "0.1.0",
+  "name": "vaani",
+  "version": "1.0.0",
   "private": true,
-  "description": "Vaani: multilingual voice AI agent that works inside Gmail (Chrome extension)",
+  "description": "Vaani: a multilingual, voice-controlled AI agent that works inside Gmail (Chrome extension).",
   "workspaces": [
     "server",
     "web",
@@ -24,5 +24,17 @@
   },
   "engines": {
     "node": ">=20.19"
-  }
+  },
+  "author": "Dinesh Saini",
+  "license": "MIT",
+  "keywords": [
+    "ai-agent",
+    "voice-assistant",
+    "gmail",
+    "chrome-extension",
+    "gemini",
+    "typescript",
+    "speech-recognition",
+    "hinglish"
+  ]
 }
