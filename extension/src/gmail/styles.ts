@@ -128,6 +128,24 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .confirm li b { color: var(--cy2); }
 .confirm .say { margin-top: 14px; font-size: 18px; } .confirm .say b { color: var(--cy); }
 
+/* setup panel */
+.confirm.setup { width: min(620px, 48vw); border-color: var(--cy); }
+.step { display: flex; gap: 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.step .num { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--cy); color: var(--cy); font-family: var(--f-hud); font-size: 13px; }
+.step.done .num { background: var(--cy); color: var(--ink); }
+.step .st { font-size: 20px; font-weight: 700; }
+.step p { font-size: 16px; color: var(--dim); margin-top: 4px; line-height: 1.4; }
+.step p b { color: var(--white); }
+.step a, .lnk { color: var(--cy); font-weight: 700; text-decoration: none; } .lnk { margin-left: 8px; }
+.step .acts { margin-top: 10px; }
+.keyform { display: flex; gap: 8px; margin-top: 10px; }
+.keyform input { flex: 1; min-width: 0; background: rgba(2,8,20,.85); border: 1px solid var(--line); color: var(--white); font: 600 14px var(--f-mono); padding: 9px 12px; outline: none; }
+.keyform input:focus { border-color: var(--cy); box-shadow: 0 0 12px rgba(70,217,255,.3); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.confirm p.warn { color: #ffb3b3; margin-top: 12px; font-size: 16px; } .confirm p.ok { color: var(--cy2); margin-top: 12px; font-size: 16px; }
+.step p.warn { color: #ffb3b3; }
+.hint2 { margin-top: 10px; font-size: 16px; color: var(--dim); } .hint2 b { color: var(--cy); }
+
 /* ---------- always-visible mic box (bottom-left) ---------- */
 .micwrap { position: fixed; left: 22px; bottom: 22px; pointer-events: auto; }
 .micbox { display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 8px; background: rgba(4,12,28,.9); border: 1px solid var(--line); border-radius: 40px;

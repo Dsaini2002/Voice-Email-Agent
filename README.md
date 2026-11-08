@@ -1,328 +1,113 @@
-# voice-email-agent: Phase 1 (MVP)
+# Vaani: voice AI agent for Gmail
 
-> Multilingual voice AI agent for Gmail: 30-second briefings in Hindi, English & Hinglish.
+> Multilingual voice AI agent that works **inside Gmail**: 30-second spoken briefings, smart filters, open folders and clean up spam by voice, in English, Hindi and Hinglish.
 
-**Aapka inbox, aapki awaaz mein.** Ek multilingual voice email agent jo Gmail padhta hai, emails ko group karta hai, spam/promo chhupata hai, aur Hindi / English / Hinglish mein 30 second ki briefing deta hai.
-
-Is phase ka goal: **"Aaj kya important aaya?" ka sahi jawab, 30 seconds mein.**
-
----
-
-## Phase 1 mein kya bana hai
-
-| Feature | Kahan hai code |
-|---|---|
-| **Chrome extension: Vaani Gmail ke andar** (transparent JARVIS overlay, mic box, voice commands) | `extension/` |
-| Gmail actions: spam folder kholna, saara spam ek baar mein Trash, Undo | `server/src/routes/actions.ts`, `extension/src/gmail/` |
-| Google login (OAuth 2.0, `gmail.modify`: read + Trash, send/permanent delete nahi) | `server/src/auth/` |
-| Silent Background Intelligence: naye mail aate hi fetch + AI analysis | `server/src/gmail/sync.ts`, `scheduler.ts`, `ai/analyzer.ts` |
-| Gmail Push (Pub/Sub) support + localhost ke liye polling | `server/src/gmail/watch.ts`, `routes/api.ts` (`/api/gmail/push`) |
-| PII Redaction: OTP, Aadhaar, PAN, card, phone, UPI, passwords AI tak nahi jaate | `server/src/privacy/redact.ts` |
-| AI classification (Gemini): category, status, priority, deadline, action | `server/src/ai/classify.ts` |
-| Truth Verification: har status ka saboot original email se check hota hai | `server/src/intel/truth.ts` |
-| Duplicate Intelligence: reminders ek card mein, latest deadline ke saath | `server/src/intel/briefingBuilder.ts` |
-| Spam/Promo hiding + Scam emails alag "Security" section mein | `server/src/intel/briefingBuilder.ts` |
-| Group Summarization + 30-sec / detailed voice briefing | `server/src/ai/briefing.ts`, `ai/speech.ts` |
-| Voice Q&A ("Kitne rejection aaye?") | `server/src/ai/ask.ts` |
-| Always-on background mic (wake word "Vaani", voice "Stop"), top-left mic icon | `web/src/hooks/useSpeechRecognition.ts`, `components/MicDock.tsx` |
-| Status popups (Shortlisted / Interview / Offer…) + detail window | `web/src/components/StatusPopups.tsx`, `EmailModal.tsx`, `statusTheme.ts` |
-| Voice output (browser built-in, Hindi/English/Hinglish) | `web/src/hooks/useSpeaker.ts` |
-| Dashboard: briefing cards, Verified tag, Gmail links, Stop button, Esc | `web/src/` |
-| **Bring-your-own Gemini key**: har user apni key daalta hai (encrypted save) | `server/src/ai/keys.ts`, `web/src/components/GeminiKeyCard.tsx` |
-| **Secret protection**: commit se pehle API keys / .env automatically block | `scripts/check-secrets.mjs`, `.githooks/pre-commit` |
-| "Delete my data": Google access revoke + sab data delete | `server/src/auth/routes.ts` |
-
-**Tech:** TypeScript everywhere. Backend: Node.js + Express. Frontend: React + Vite + Tailwind. Database: built-in JSON files (MongoDB optional). AI: Google Gemini.
+Vaani ek **Chrome extension** hai. Isme **koi server, koi database, koi `.env` file aur koi `npm` nahi** chahiye.
+Har user ka data uske **apne browser** mein rehta hai, aur AI uski **apni free Gemini key** se chalta hai.
 
 ```
-voice-email-agent/
-├── shared/types.ts        ← server aur web dono ke common types
-├── server/                ← Express API + background sync + AI
-│   ├── src/
-│   │   ├── auth/          Google OAuth, session cookie
-│   │   ├── gmail/         sync, parse, Pub/Sub watch, scheduler
-│   │   ├── ai/            Gemini client, classify, briefing, ask
-│   │   ├── intel/         truth verification, grouping/dedupe
-│   │   ├── privacy/       PII redaction
-│   │   └── routes/        /api endpoints
-│   └── test/              unit + end-to-end tests (credentials ki zarurat nahi)
-├── web/                   React dashboard (voice UI)
-├── design/                Phase 2 ka JARVIS-style HUD design file
-├── scripts/               secret scanner + git hook setup
-├── .githooks/pre-commit   har commit se pehle secret check
-└── SECURITY.md            secrets ke rules + leak ho jaaye to kya karein
+Gmail tab
+ └─ Vaani overlay (transparent JARVIS HUD + mic box)
+      └─ Extension background
+           ├─ Google sign-in (chrome.identity)   → Gmail API (directly)
+           ├─ User's own Gemini key              → Gemini API (directly)
+           └─ chrome.storage (local database in this browser)
 ```
 
 ---
 
-## Vaani Gmail ke andar (Chrome extension)
+## 👤 Users ke liye: 2 minute ka setup
 
-Vaani **tumhare Gmail tab ke andar hi** chalta hai. Koi naya window ya tab nahi khulta:
-- Gmail kholte hi left-bottom corner mein **Vaani mic box** dikhta hai. Mic background mein chalta rehta hai.
-- Command bolte hi Gmail ke upar ek **transparent JARVIS overlay** aata hai. Peeche Gmail dikhta rehta hai.
-- Folder wale commands **usi Gmail tab** mein folder khol dete hain.
+1. **Extension install karo**
+   - Owner ne ZIP bheja ho: ZIP extract karo → Chrome mein `chrome://extensions` kholo → upar right mein **Developer mode** on karo → **Load unpacked** → `vaani-extension` folder chuno (wahi folder jisme `manifest.json` ho).
+   - Chrome Web Store par aane ke baad: bas **Add to Chrome** dabana hoga.
+2. **Gmail kholo.** Vaani apne aap setup panel dikhayega.
+3. **Sign in with Google** dabao aur permission do.
+4. **Apni free Gemini key daalo:** [aistudio.google.com/apikey](https://aistudio.google.com/apikey) kholo → **Create API key** → copy karke panel mein paste karo → **Save**.
+5. Mic ki permission do aur bolo: **"Vaani, give me today's summary"**
 
-### Install (ek baar)
-1. `npm install` aur `npm run build` chalao. Isse `extension/dist` ban jaayega.
-2. Chrome mein `chrome://extensions` kholo → upar right mein **Developer mode** on karo → **Load unpacked** → `extension` folder chuno.
-3. `npm run dev` chalao → http://localhost:5173 kholo → Google se login karo → Gemini key daalo.
-   Dashboard extension ko **apne aap connect** kar deta hai, aur "Connected" dikhega.
-4. Gmail kholo. Pehli baar Chrome mic ki permission maangega, **Allow** dabao.
-
-### Commands (bolo ya `Alt+V` dabake type karo)
+### Commands (bolo, ya `Alt+V` dabake type karo)
 
 | Bolo | Kya hota hai |
 |---|---|
-| "Vaani, give me today's summary" / "aaj ka summary batao" | Cards **ek-ek karke** left mein aate hain aur Vaani har email bolti hai |
-| "Vaani, show interview emails" / "interview wale message dikhao" | Sirf interview wale cards ki list |
-| "Vaani, TCS ka interview message dikhao" / "open the TCS email" | Us company ka bada detail card |
+| "Vaani, give me today's summary" / "aaj ka summary batao" | Cards **ek-ek karke** aate hain aur Vaani har email bolti hai |
+| "Vaani, show interview emails" / "interview wale message dikhao" | Sirf interview wale emails ki list |
+| "Vaani, TCS ka interview message dikhao" | Us company ka detail card |
 | "Vaani, open it in Gmail" | Wahi email **usi tab** mein Gmail mein khul jaata hai |
 | "Vaani, open full window" | Poori screen par transparent overview |
-| "Vaani, open spam" / "spam kholo" | Gmail ka **Spam folder usi tab** mein khulta hai |
-| "Vaani, delete all spam" / "spam ke saare message delete karo" | Saare spam ka count aur preview dikhta hai. "**confirm**" bolte hi **sab ek baar mein** Trash mein chale jaate hain |
-| "Vaani, undo" | Abhi delete kiye gaye emails wapas aa jaate hain |
+| "Vaani, open spam" / "spam kholo" | Gmail ka Spam folder **usi tab** mein |
+| "Vaani, delete all spam" / "spam ke saare message delete karo" | Saare spam ki ginti dikhti hai. "**confirm**" bolte hi **sab ek baar mein** Trash mein |
+| "Vaani, undo" | Delete kiye gaye emails wapas |
 | "Vaani, open inbox / sent / drafts / trash / starred / promotions" | Wahi folder usi tab mein |
-| "Vaani, search internship stipend" | Gmail search usi tab mein |
-| "stop" / "ruko" | Bolna turant band |
+| "Vaani, search internship stipend" | Gmail search |
+| "Vaani, how many rejections this week?" | AI jawab deta hai, aur related cards dikhata hai |
+| "stop" / "ruko" | Bolna band |
 | "close" / "band karo" / Esc | Overlay band |
-| Koi bhi sawaal: "Vaani, how many rejections this week?" | AI jawab deta hai, aur related cards dikhta hai |
+| "Vaani, sign in" / "setup" | Setup panel |
 
-> Delete hamesha **Trash** mein jaata hai, jahan se Gmail 30 din tak wapas laane deta hai, aur "undo" bhi kaam karta hai. Permanent delete aur email send karna app ke bas mein hi nahi hai.
-
-Settings ke liye Chrome toolbar mein Vaani icon par click karo: mic on/off, wake word, bolne ki bhasha (English / Hindi-Hinglish), aur server URL.
+Settings ke liye Chrome toolbar mein Vaani icon par click karo. Wahan mic on/off, wake word, bolne ki bhasha (English / Hindi-Hinglish), Gemini key aur sign out milta hai.
 
 ---
 
-## Ye sabke liye hai: kaun kya deta hai?
+## 🛠 Owner setup: sirf ek baar, extension share karne wala karega
 
-| Cheez | Kaun deta hai | Kyun |
-|---|---|---|
-| Google OAuth Client ID/Secret | **App chalane wala (server owner)**, ek baar | Isse "Google se login" ka button chalta hai. Har user apne Google account se login karta hai. Iska koi kharcha nahi hai. |
-| **Gemini API key** | **Har user khud** (dashboard mein) | AI ka usage har user ki apni free key par chalta hai. Owner ki key kisi aur ke liye use nahi hoti. |
-| ENCRYPTION_KEY, SESSION_SECRET (data JSON files mein apne aap save hota hai) | Server owner | Server ka data aur security |
+Users ko Google Cloud ya `.env` kuch nahi karna padta. Ye sab **aap ek baar** karte ho, phir extension sabko de dete ho.
 
-Pehli baar login karne par dashboard par **"Apni free Gemini API key jodo"** card dikhta hai, jisme 3 steps hain:
-1. aistudio.google.com/apikey kholo.
-2. **Create API key** dabao aur key copy karo.
-3. Key paste karke **Save** dabao.
+### 1. Google Cloud (10 minute)
+1. [console.cloud.google.com](https://console.cloud.google.com) → **New Project**, naam `Vaani`.
+2. **APIs & Services → Library** → **Gmail API** → **Enable**.
+3. **Google Auth Platform → Branding:** App name `Vaani`, support email daalo.
+   - **Audience:** External. Jab tak Google app verify nahi karta, ise *Testing* mein rakho, aur **Test users** mein un logon ke Gmail add karo jinhe extension doge (max 100).
+   - **Data Access:** `.../auth/gmail.modify`, `.../auth/userinfo.email`, `.../auth/userinfo.profile` add karo.
+4. **Clients → Create client:**
+   - Application type: **Chrome Extension**
+   - Item ID: **`jfjfjfjflmnmnmijkahmekcfpclgmdpf`**
+     *(Ye is extension ki fixed ID hai, `manifest.json` ki `key` se banti hai, aur har computer par same rehti hai.)*
+   - **Create** dabao aur **Client ID** copy karo. Is type mein secret nahi hota.
 
-Key ek baar check hoti hai, phir encrypted save hoti hai, aur browser ko kabhi wapas nahi bheji jaati. Baad mein key badalni ya hatani ho to account menu mein **"Gemini API key"** option hai.
+### 2. Client ID extension mein daalo aur release banao
+```bash
+npm install
+npm run set-client-id -- 1234567890-abc.apps.googleusercontent.com
+npm run release
+```
+Isse `extension/release/vaani-extension` folder ban jaata hai. Use ZIP karke users ko bhejo, ya Chrome Web Store par upload karo.
 
-> **Sirf apne personal use ke liye?** `server/.env` mein `ALLOW_SERVER_GEMINI_KEY=true` aur `GEMINI_API_KEY=...` daal do. Tab dashboard mein key daalne ki zarurat nahi padegi. Agar doosre log bhi tumhare server par login karte hain, to isse **`false`** hi rakhna, warna sabka usage tumhari key par jaayega.
-
-### Doosre log kaise use karenge?
-
-- **Option A: Tum server host karo** (Render / Railway / VPS par). Log bas tumhari website kholenge, Google se login karenge aur apni Gemini key daalenge.
-  - ⚠️ Google ke **Testing mode** mein sirf 100 "test users" login kar sakte hain, aur unke email Cloud Console mein add karne padte hain.
-  - Sabke liye kholne ke liye Google **app verification** karna padega. `gmail.modify` ek *restricted scope* hai, isliye ek security assessment (CASA) bhi lag sakta hai.
-- **Option B: Har koi khud chalaye (self-host).** Log ye repository clone karenge aur neeche ke setup steps follow karenge. Unke apne Google Cloud credentials aur apni Gemini key hogi.
+> **Sabke liye public karna ho to:** Google ke *Testing* mode mein sirf 100 test users sign in kar sakte hain. Isse zyada logon ke liye app ko **Publish** karke Google **verification** karwana hoga. `gmail.modify` ek *restricted scope* hai, isliye Google ek security assessment (CASA) bhi maangta hai.
+> Chrome Web Store par upload karne ke baad store ek nayi extension ID deta hai. Tab OAuth client ka **Item ID** wahi nayi ID kar dena.
 
 ---
 
-## Setup (pehli baar, ~20 minute)
+## Kya-kya hai
 
-### 0. Zaroori cheezein
+| Feature | Code |
+|---|---|
+| Gmail ke andar transparent JARVIS overlay, mic box, live captions | `extension/src/gmail/` |
+| Background mic + wake word "Vaani", voice "stop" | `extension/src/gmail/speech.ts` |
+| English + Hinglish commands (spam ko "span" sun le to bhi samajhta hai) | `extension/src/gmail/commands.ts` |
+| Google sign-in (chrome.identity), Gmail API, background sync har minute | `extension/src/bg/auth.ts`, `gmail.ts`, `sync.ts` |
+| PII redaction: OTP, Aadhaar, PAN, card, phone, UPI AI tak nahi jaate | `server/src/privacy/redact.ts` (shared) |
+| AI classification + Truth Verification + duplicate merge (user ki Gemini key) | `extension/src/bg/ai.ts` + shared `server/src/ai/*Core.ts`, `server/src/intel/` |
+| Spam: ginti, saara spam ek baar mein Trash, Undo | `extension/src/bg/router.ts` |
+| Local database (chrome.storage), 30 din purani copies apne aap hat jaati hain | `extension/src/bg/store.ts` |
 
-- **Node.js 20.19 ya usse naya** (22 LTS recommended): https://nodejs.org
-- **Google Chrome ya Microsoft Edge** (voice ke liye)
-- Ek **Google account** (jiska Gmail use karna hai)
+## Privacy & security
 
-### 1. Google Cloud: Gmail API + OAuth client
+- **Koi Vaani server nahi hai.** Emails sirf Google (Gmail) aur, analysis ke liye, user ki apni Gemini key ke through Google AI tak jaate hain.
+- AI ko bhejne se **pehle** OTP, Aadhaar, PAN, card, phone aur UPI mask ho jaate hain.
+- Data sirf us browser profile ke `chrome.storage` mein rehta hai. **Sign out** dabate hi Google access revoke ho jaata hai aur sab kuch delete ho jaata hai.
+- Permission `gmail.modify` hai: padhna aur Trash mein bhejna. Vaani **email send nahi kar sakta** aur **permanently delete nahi kar sakta**. Har delete se pehle aapka "confirm" chahiye, aur Undo milta hai.
+- Mic sirf tab chalta hai jab Gmail tab saamne ho. Awaaz save nahi hoti. Chrome ka speech recognition awaaz ko text banane ke liye Google ko bhejta hai.
+- Details: [SECURITY.md](SECURITY.md)
 
-1. https://console.cloud.google.com par jao. Upar project dropdown → **New Project** → naam `VaaniMail` → Create.
-2. **APIs & Services → Library** → "Gmail API" search karo → **Enable**.
-3. **Google Auth Platform → Branding** (purane UI mein *OAuth consent screen*):
-   - App name: `VaaniMail AI`, support email: apna email → Save.
-   - **Audience**: User type **External**, Publishing status **Testing** rehne do.
-   - **Test users → Add users** → apna Gmail address daalo. *(Testing mode mein sirf yahi log login kar sakte hain, max 100.)*
-   - **Data Access → Add or remove scopes** → `.../auth/gmail.modify` add karo → Save.
-4. **Clients → Create client** (purane UI mein *Credentials → Create Credentials → OAuth client ID*):
-   - Application type: **Web application**
-   - Authorized JavaScript origins: `http://localhost:5173`
-   - Authorized redirect URIs: `http://localhost:5173/api/auth/google/callback`
-   - Create → **Client ID** aur **Client Secret** copy karo.
-
-### 2. Gemini API key
-
-Kuch karne ki zarurat nahi hai. Har user login ke baad **dashboard mein apni key khud daalta hai**, upar dekho. *(Sirf personal use ke liye `ALLOW_SERVER_GEMINI_KEY=true` set kar sakte ho.)*
-
-### 3. Database: kuch install nahi karna
-
-App apna data (users, settings, emails ki redacted copies) **JSON files** mein `server/data/` folder mein save karta hai. MongoDB ya koi aur database install karne ki zarurat nahi hai, aur ye folder pehli baar chalane par apne aap ban jaata hai.
-
-> Bahut saare users ke liye bada server chalana ho, to `server/.env` mein `MONGODB_URI` daal do. Tab wahi code MongoDB par chalega, warna JSON files hi use hongi.
-
-### 4. `.env` file banao
-
-```bash
-# Windows (Command Prompt)
-copy server\.env.example server\.env
-
-# Mac / Linux
-cp server/.env.example server/.env
-```
-
-Do secret keys banao. Ye command do baar chalao, ek `ENCRYPTION_KEY` ke liye aur ek `SESSION_SECRET` ke liye:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Ab `server/.env` kholo aur ye values bharo:
-
-```
-GOOGLE_CLIENT_ID=...         (step 1)
-GOOGLE_CLIENT_SECRET=...     (step 1)
-ENCRYPTION_KEY=...           (64 hex characters)
-SESSION_SECRET=...
-```
-
-### 5. Install aur chalao
+## Developers
 
 ```bash
 npm install
-npm run dev
+npm test             # server + extension tests
+npm run release      # build extension → extension/release/vaani-extension
 ```
-
-Browser mein **http://localhost:5173** kholo → **Google se login karo** → dashboard par **apni Gemini key daalo**.
-
-> Google ek screen dikhayega: *"Google hasn't verified this app"*. Ye testing mode mein normal hai. **Continue** dabao. Phir Gmail wala checkbox **tick** karke allow karo.
-
-Pehli baar login ke baad pichhle 7 din ke emails (max 150) padhe aur samjhe jaate hain. Gemini free tier ki speed ke hisaab se isme 1 se 3 minute lagte hain, aur cards apne aap aa jaate hain.
-
----
-
-## Kaise use karein
-
-### Background mic (top-left corner)
-- Page khulte hi mic **apne aap background mein chalta rehta hai**. Koi button dabane ki zarurat nahi hai. Pehli baar browser mic ki permission maangega, **Allow** karna.
-- Top-left corner ke chhote mic icon ka matlab:
-  - 🟢 hara = sun raha hai
-  - 🟠 orange = aapki baat sun raha hai, aur neeche live caption dikhta hai
-  - ⚪ grey = mic band hai
-  - 🔴 laal = mic blocked hai
-- **Wake word "Vaani"** (default on): sirf wo baat command maani jaati hai jo "Vaani" se shuru ho, jaise *"Vaani, aaj kya important aaya?"* Kamre mein ho rahi baaki baatein ignore hoti hain. Sirf "Vaani" bolo to wo 8 second tak aapke sawaal ka intezaar karti hai.
-- Agent bol raha ho to **"Stop" / "Ruko" / "Bas"** bolo, wo turant ruk jaayega. **Esc** key bhi kaam karti hai.
-- Mic icon par click karke mic band/on kar sakte ho, aur wake word on/off kar sakte ho.
-- Tab minimize karne ya doosre tab par jaane par mic **apne aap ruk jaata hai**, aur wapas aane par phir chalu ho jaata hai. Awaaz kahin save nahi hoti.
-
-### Status popups
-- Naya important email aate hi top-right mein ek **animated popup** aata hai. Har type ka apna colour aur icon hai:
-  - 🏆 Offer
-  - 📅 Interview
-  - ⭐ Shortlisted
-  - ⚡ Action pending
-  - ✏️ Test
-  - 🛡️ Scam alert
-  - ❤️ Personal
-  - 💳 Bank
-  - ⚠️ Khud check karo
-- Popup 9 second mein apne aap chala jaata hai. Mouse upar rakho to ruk jaata hai. Ek baar dikha hua email dobara popup nahi banta. Haan, "Aaj ki briefing suno" chalane par top emails phir se popup hote hain.
-- Popup ya kisi bhi card par click karo to **detail window** khulti hai. Usme summary, deadline, aapko kya karna hai, Verified/AI confidence, "Gmail mein kholo" aur "Suno" button hote hain.
-
-### Baaki
-- **"Aaj ki briefing suno"** se 30-second voice summary milti hai.
-- Header mein **Hinglish / हिंदी / English** aur **30 sec / Detail** mode chuno.
-- Har card par **✓ Verified** = status ka saboot original email mein mila. **⚠ Khud check karo** = AI ka claim verify nahi hua.
-
-Example sawaal:
-- "Kaunse emails mein mera kaam pending hai?"
-- "Is hafte kitne rejection aaye?"
-- "Infosys ka kya status hai?"
-- "Sirf important batao"
-
-**Windows tip:** Hindi awaaz ke liye *Settings → Time & Language → Language & region → Add a language → Hindi* (speech ke saath) install karo. Edge browser ki "Online (Natural)" voices sabse natural lagti hain.
-
----
-
-## Tests
-
-```bash
-npm test
-```
-
-21 tests chalte hain, aur inhe credentials ki zarurat nahi hai. Fake Gmail + fake Gemini + in-memory DB ke saath poora flow check hota hai:
-
-- Login mein sirf `gmail.modify` maanga jaaye (full-delete wala scope nahi), aur OAuth state CSRF check kaam kare
-- Extension token: sirf hash save hota hai, galat token reject, extension token se account delete ya naya token nahi ban sakta
-- Spam: bina confirm ke delete nahi, confirm par saare spam ek call mein Trash, Undo se wapas
-- Sync → PII redaction ("482913" jaisa OTP AI tak kabhi na pahunche)
-- Truth verification (AI ka galat "offer" claim pakda jaaye)
-- Duplicate merge (2 reminders → 1 card, latest deadline)
-- Briefing, Q&A (AI ke invent kiye email IDs drop ho jaayein), input validation, "Delete my data"
-
-Type check: `npm run typecheck`
-
----
-
-## Background sync: 2 modes
-
-| Mode | Kab use karein | Kaise |
-|---|---|---|
-| `SYNC_MODE=poll` (default) | Laptop / localhost | Har `POLL_INTERVAL_SEC` (60s) Gmail History API se sirf naye emails laata hai |
-| `SYNC_MODE=pubsub` | Server ke paas public HTTPS URL ho | Gmail khud batata hai jab naya mail aaye (real-time) |
-
-**Pub/Sub setup (optional):**
-1. Cloud Console → **Pub/Sub** API enable → Topic banao, jaise `gmail-push`.
-2. Topic → Permissions → principal `gmail-api-push@system.gserviceaccount.com` ko role **Pub/Sub Publisher** do.
-3. Topic par **Push subscription** banao. Endpoint: `https://<your-domain>/api/gmail/push?token=<PUBSUB_VERIFICATION_TOKEN>`
-4. `.env` mein: `SYNC_MODE=pubsub`, `GMAIL_PUBSUB_TOPIC=projects/<project-id>/topics/gmail-push`, `PUBSUB_VERIFICATION_TOKEN=<random string>`
-
-Watch har din apne aap renew hoti hai. Iske alawa ek safety-net sync har 15 minute mein chalta hai.
-
----
-
-## Production build (ek hi server par)
-
-```bash
-npm run build                 # web/dist banata hai
-# server/.env mein:
-#   NODE_ENV=production
-#   WEB_ORIGIN=https://your-domain.com
-#   GOOGLE_REDIRECT_URI=https://your-domain.com/api/auth/google/callback
-npm start                     # API + dashboard dono port 4000 par
-```
-
-OAuth client mein bhi naya origin aur redirect URI add karna mat bhoolna.
-
----
-
-## Security, ek nazar mein
-
-> Poori details: **[SECURITY.md](SECURITY.md)**
-
-- **Secrets GitHub par nahi jaate:** `.gitignore` saari `.env` files, Google credential JSON aur private keys ko block karta hai. `npm install` ke waqt ek **git pre-commit hook** apne aap on ho jaata hai, jo har commit se pehle API keys, passwords aur `.env` files dhoondhta hai, aur mile to commit rok deta hai. Poori repo khud check karni ho to: `npm run check-secrets`
-- **Bring-your-own Gemini key:** har user ki key AES-256-GCM se encrypted save hoti hai. Browser ko sirf aakhri 4 akshar dikhte hain, aur key ko check karne wale endpoint par 10 tries / 15 min ki limit hai.
-- **Least privilege:** `gmail.modify` (padhna + Trash mein bhejna). App email **send nahi kar sakta** aur **permanently delete nahi kar sakta**. Har badlaav se pehle aapka "confirm" zaroori hai, aur Undo milta hai.
-- **Encrypted tokens:** Google refresh token AES-256-GCM se encrypt hokar save hota hai.
-- **Session:** httpOnly + SameSite cookie, signed JWT, 7 din.
-- **OAuth CSRF:** random `state` cookie se verify hota hai.
-- **PII redaction:** AI ko bhejne se pehle *aur* DB mein save karne se pehle hoti hai. Raw HTML save nahi hota.
-- **Truth verification:** bina saboot ke koi "offer/shortlisted" claim nahi kiya jaata.
-- **Rate limits:** API par 120/min, AI endpoints par 20/min.
-- **Helmet** security headers + CSP, aur zod se har input validate hota hai.
-- **Delete my data:** Google token revoke + saare emails aur user record delete.
-- Mic sirf tab chalta hai jab VaaniMail ka tab khula aur saamne ho. Wake word ke bina koi command nahi chalta, aur awaaz kahin save nahi hoti. (Note: Chrome ka built-in speech recognition awaaz ko text banane ke liye Google ke server par bhejta hai.)
-
----
-
-## Common problems
-
-| Problem | Solution |
-|---|---|
-| `.env configuration problem` | Error message mein jo field likhi hai, wo `server/.env` mein bharo |
-| `MONGODB_URI is set but MongoDB is not reachable` | `server/.env` se `MONGODB_URI` hata do. App apne built-in JSON storage par chal jaayega |
-| HTTP 502 jab "Sign in with Google" dabate ho | Backend (port 4000) nahi chal raha. Terminal ki `[server]` lines dekho, aksar `.env` mein koi value khaali hoti hai |
-| `redirect_uri_mismatch` | OAuth client ke redirect URI aur `.env` ka `GOOGLE_REDIRECT_URI` **bilkul same** hone chahiye |
-| `access_denied` / "app not verified" block | OAuth consent screen → Test users mein apna email add karo |
-| Har ~7 din baad dobara login | Testing mode mein Google refresh tokens 7 din mein expire karta hai. Ye normal hai. |
-| "AI analysis ruk gaya: 429" | Gemini free tier limit lag gayi. `.env` mein `GEMINI_MIN_INTERVAL_MS=8000` karo, wo apne aap retry karega |
-| Model not found | `GEMINI_MODEL` ko https://ai.google.dev/gemini-api/docs/models par diye kisi Flash model par set karo |
-| Mic kaam nahi kar raha | Chrome/Edge use karo, address bar ke 🔒 icon se mic allow karo |
-| Hindi awaaz nahi aa rahi | Upar ka Windows tip dekho, ya Edge use karo |
-
----
-
-## Aage kya (Phase 2)
-
-Chrome Extension + Full-screen Overlay, Search, Trash/Archive + Undo, Smart Reply Review & Approval, Preference Memory, Natural-language Rules, Interruptible voice commands. Phase 2 mein Gmail scope `gmail.modify` tak badhega.
+- `extension/`: Chrome extension (main product)
+- `server/src/ai/*Core.ts`, `server/src/intel/`, `server/src/privacy/`: shared AI / verification / privacy logic, jo extension mein bundle hota hai
+- `server/` + `web/`: **optional** purana web dashboard aur server, jo normal users ke liye zaroori nahi hai. Dekho [docs/server-dashboard.md](docs/server-dashboard.md)
+- `design/`: editable HUD design file

@@ -6,6 +6,8 @@ import path from "node:path";
 
 const require = createRequire(import.meta.url);
 const watch = process.argv.includes("--watch");
+// VAANI_TEST=1 builds a test version that talks to a local mock of Google's APIs.
+const TEST = process.env.VAANI_TEST === "1";
 
 mkdirSync("fonts", { recursive: true });
 for (const [pkg, file] of [
@@ -21,7 +23,7 @@ for (const [pkg, file] of [
 }
 
 const options = {
-  entryPoints: { gmail: "src/gmail/main.ts", connect: "src/connect.ts", background: "src/background.ts", popup: "src/popup.ts" },
+  entryPoints: { gmail: "src/gmail/main.ts", background: "src/background.ts", popup: "src/popup.ts" },
   outdir: "dist",
   bundle: true,
   format: "esm",
@@ -29,9 +31,10 @@ const options = {
   minify: !watch,
   sourcemap: watch ? "inline" : false,
   logLevel: "info",
+  define: { __TEST__: TEST ? "true" : "false" },
 };
 // Content scripts cannot be ES modules — build them as IIFE.
-const iife = { ...options, entryPoints: { gmail: "src/gmail/main.ts", connect: "src/connect.ts" }, format: "iife" };
+const iife = { ...options, entryPoints: { gmail: "src/gmail/main.ts" }, format: "iife" };
 const esm = { ...options, entryPoints: { background: "src/background.ts", popup: "src/popup.ts" } };
 
 if (watch) {

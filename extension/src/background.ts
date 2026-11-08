@@ -1,33 +1,38 @@
 /**
- * Background service worker: the ONLY place that talks to the VaaniMail server.
- * The access token lives in chrome.storage.local (never in the Gmail page).
+ * Background service worker. Vaani is fully self-contained: Google sign-in,
+ * Gmail API, Gemini (with the user's own key) and storage all run here.
+ * There is no Vaani server.
  */
-import { getSettings, type ApiRequest, type ApiResponse } from "./shared";
+import { handle } from "./bg/router";
+import { runSync } from "./bg/sync";
+import type { ApiRequest } from "./shared";
 
-async function callApi(req: ApiRequest): Promise<ApiResponse> {
-  const { token } = (await chrome.storage.local.get("token")) as { token?: string };
-  const { server } = await getSettings();
-  if (!token) return { ok: false, status: 401, data: null, error: "NOT_CONNECTED" };
-  if (!/^\/[\w\-/?=&.%]*$/.test(req.path)) return { ok: false, status: 400, data: null, error: "Bad path" };
+const ALARM = "vaani-sync";
 
-  try {
-    const res = await fetch(`${server}/api${req.path}`, {
-      method: req.method ?? "GET",
-      headers: { Authorization: `Bearer ${token}`, ...(req.body ? { "Content-Type": "application/json" } : {}) },
-      body: req.body ? JSON.stringify(req.body) : undefined,
-    });
-    const data = await res.json().catch(() => null);
-    if (res.status === 401) await chrome.storage.local.remove("token");
-    return { ok: res.ok, status: res.status, data, error: res.ok ? undefined : (data as { error?: string } | null)?.error };
-  } catch {
-    return { ok: false, status: 0, data: null, error: `Cannot reach the Vaani server at ${server}. Is it running?` };
-  }
+function ensureAlarm() {
+  void chrome.alarms.get(ALARM).then((a) => {
+    if (!a) void chrome.alarms.create(ALARM, { periodInMinutes: 1 });
+  });
 }
+
+chrome.runtime.onInstalled.addListener(() => {
+  ensureAlarm();
+  void runSync();
+});
+chrome.runtime.onStartup.addListener(() => {
+  ensureAlarm();
+  void runSync();
+});
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === ALARM) void runSync();
+});
 
 chrome.runtime.onMessage.addListener((msg: ApiRequest, _sender, send) => {
   if (msg?.type === "api") {
-    void callApi(msg).then(send);
+    void handle(msg.path, msg.method ?? "GET", msg.body).then(send);
     return true; // async response
   }
   return false;
 });
+
+ensureAlarm();

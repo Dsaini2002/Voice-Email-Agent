@@ -17,7 +17,9 @@
   .muted { color: #93aec4; font-weight: 500; font-size: 13px; margin-top: 4px; }
   label { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
   select, input[type=text] { background: #071428; color: #f2fbff; border: 1px solid rgba(110,210,255,.3); padding: 4px 6px; font: inherit; }
-  input[type=text] { width: 100%; margin-top: 6px; font: 12px VMono, monospace; }
+  input[type=text], input[type=password] { width: 100%; margin-top: 6px; font: 12px VMono, monospace; background: #071428; color: #f2fbff; border: 1px solid rgba(110,210,255,.3); padding: 6px; }
+  a { color: #46d9ff; }
+  .warn { color: #ffb3b3; }
   button { margin-top: 10px; width: 100%; padding: 8px; font: 700 14px VRaj, sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
     color: #02060f; border: 0; background: linear-gradient(90deg, #2a7bff, #46d9ff); }
   button.ghost { background: transparent; color: #f2fbff; border: 1px solid rgba(110,210,255,.4); }
@@ -44,14 +46,12 @@
     </label>
   </div>
 
-  <div class="lbl">Server</div>
-  <div class="box">
-    <input type="text" id="server" spellcheck="false" />
-    <div class="muted">Where your Vaani server runs.</div>
-  </div>
+  <div class="lbl">Gemini API key</div>
+  <div class="box" id="keybox">…</div>
 
-  <button id="dashboard">Open dashboard to connect</button>
-  <button id="disconnect" class="ghost">Disconnect</button>
+  <button id="gmail">Open Gmail</button>
+  <button id="signin">Sign in with Google</button>
+  <button id="signout" class="ghost">Sign out &amp; delete my data</button>
 
   <div class="hint">In Gmail say:<br />"Vaani, give me today's summary"<br />"Vaani, open spam"<br />"Vaani, delete all spam"</div>
   <script type="module" src="dist/popup.js"></script>

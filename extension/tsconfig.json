@@ -9,5 +9,5 @@
     "noEmit": true,
     "types": ["chrome"]
   },
-  "include": ["src", "test", "../shared"]
+  "include": ["src", "test", "../shared", "../server/src/ai/askCore.ts", "../server/src/ai/classifyCore.ts"]
 }

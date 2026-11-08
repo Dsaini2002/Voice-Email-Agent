@@ -339,8 +339,8 @@ function Dashboard({ me, onLoggedOut }: { me: Me; onLoggedOut: () => void }) {
               <p className="mt-1 text-xl font-semibold">Connecting the extension…</p>
             ) : (
               <p className="mt-1 text-lg text-dim">
-                Vaani works <b className="text-snow">inside Gmail</b> through the Chrome extension. Load the <code className="font-mono text-cy2">extension</code> folder
-                in <code className="font-mono text-cy2">chrome://extensions</code> (Developer mode → Load unpacked), then reload this page.
+                Tip: the <b className="text-snow">Vaani Chrome extension</b> works on its own inside Gmail — no server or dashboard needed.
+                Install it from the <code className="font-mono text-cy2">extension</code> folder (see README).
               </p>
             )}
           </div>

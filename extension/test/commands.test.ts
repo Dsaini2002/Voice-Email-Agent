@@ -34,6 +34,8 @@ describe("voice command parser", () => {
     expect(p("close")).toEqual({ type: "close" });
     expect(p("band karo")).toEqual({ type: "close" });
     expect(p("back to list")).toEqual({ type: "summary" });
+    expect(p("sign in")).toEqual({ type: "setup" });
+    expect(p("open settings")).toEqual({ type: "ask", text: "open settings" });
   });
 
   it("summary, full window, filters", () => {

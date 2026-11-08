@@ -17,6 +17,7 @@ export type Command =
   | { type: "confirm" }
   | { type: "undo" }
   | { type: "close" }
+  | { type: "setup" }
   | { type: "trashSpam" }
   | { type: "folder"; folder: Folder }
   | { type: "openCurrent" }
@@ -99,6 +100,8 @@ export function parseCommand(raw: string, knownEntities: string[] = []): Command
   if (/\bundo\b|\bwapas (lao|karo|la do)\b|\brestore\b/.test(t)) return { type: "undo" };
   if (/^(close|hide|exit|dismiss|minimi[sz]e|band karo|band kar do|chhota karo|go away)\b/.test(t)) return { type: "close" };
   if (/^(back|go back|wapas|peeche)\b/.test(t)) return { type: "summary" };
+
+  if (/^(setup|set up|settings|sign in|signin|log ?in|connect|account)\b/.test(t)) return { type: "setup" };
 
   // "delete all spam", "spam ke saare message delete karo", "spam saaf karo"
   if (/\bspam\b/.test(t) && DELETE.test(t)) return { type: "trashSpam" };

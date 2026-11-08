@@ -79,7 +79,17 @@ const joinNames = (n: string[]) => (n.length <= 1 ? n.join("") : `${n.slice(0, -
 // ---------------------------------------------------------------------------
 // state
 // ---------------------------------------------------------------------------
-type View = "none" | "briefing" | "list" | "focus" | "full" | "confirm" | "thinking";
+type View = "none" | "briefing" | "list" | "focus" | "full" | "confirm" | "thinking" | "setup";
+
+interface SetupStatus {
+  clientIdOk: boolean;
+  signedIn: boolean;
+  email: string;
+  name: string;
+  hasGeminiKey: boolean;
+  keyLast4: string | null;
+  sync: { state: string; message: string; total: number; analyzed: number; lastSyncAt: string | null };
+}
 const st = {
   view: "none" as View,
   command: "",
@@ -97,7 +107,10 @@ const st = {
   hints: [] as string[],
   menu: false,
   connected: true,
-  connectError: "",
+  setup: null as SetupStatus | null,
+  setupMsg: "",
+  setupErr: false,
+  setupBusy: false,
   toast: null as { text: string; label: string; err?: boolean; undo?: boolean } | null,
 };
 let toastTimer = 0;
@@ -311,6 +324,8 @@ function render() {
               .join("")}</div>`,
         )
         .join("")}</div>${hintsHtml()}`;
+  } else if (st.view === "setup") {
+    body = `<button class="closeX pa" data-cmd="close" title="Close (Esc)">✕</button>${setupPanel()}${coreHtml(isReady() ? "ONLINE" : "SETUP")}`;
   } else if (st.view === "confirm" && st.confirm) {
     const c = st.confirm;
     body = `${commandBar()}
@@ -330,12 +345,72 @@ function render() {
   renderMic();
 }
 
+const isReady = () => Boolean(st.setup?.clientIdOk && st.setup.signedIn && st.setup.hasGeminiKey);
+
+function setupPanel() {
+  const s = st.setup;
+  if (!s) return `<div class="confirm pa"><div class="big">Loading…</div></div>`;
+  const step = (n: number, done: boolean, title: string, body: string) =>
+    `<div class="step ${done ? "done" : ""}"><span class="num">${done ? "✓" : n}</span><div><div class="st">${title}</div>${body}</div></div>`;
+  const signIn = !s.clientIdOk
+    ? `<p class="warn">This copy of Vaani has no Google Client ID yet. Ask the person who shared it to complete "Owner setup" in the README.</p>`
+    : s.signedIn
+      ? `<p>Signed in as <b>${esc(s.email)}</b></p>`
+      : `<p>Vaani reads your Gmail directly from this browser. Nothing goes to any Vaani server.</p><div class="acts"><button class="btn solid" data-act="signin" ${st.setupBusy ? "disabled" : ""}>Sign in with Google</button></div>`;
+  const key = s.hasGeminiKey
+    ? `<p>Key connected · •••• ${esc(s.keyLast4 ?? "")} <button class="lnk" data-act="replacekey">Replace</button></p>`
+    : `<p>The AI runs on <b>your own free</b> Gemini key. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Get a key from Google AI Studio ↗</a> → "Create API key" → paste it here.</p>
+       <form data-act="keyform" class="keyform"><input type="password" placeholder="Paste your Gemini API key (AIza…)" autocomplete="off" spellcheck="false" aria-label="Gemini API key" ${!s.signedIn ? "disabled" : ""}/><button class="btn solid" type="submit" ${!s.signedIn || st.setupBusy ? "disabled" : ""}>Save</button></form>`;
+  const sy = s.sync;
+  const progress = !s.signedIn
+    ? "<p>Waiting for sign-in.</p>"
+    : sy.total === 0
+      ? `<p>${esc(sy.message || "Reading your inbox…")}</p>`
+      : `<p>${sy.analyzed} of ${sy.total} emails analysed. ${esc(sy.message)}</p><div class="bar" style="margin-top:8px"><i style="width:${Math.round((sy.analyzed / Math.max(1, sy.total)) * 100)}%"></i></div>`;
+  return `<div class="confirm setup pa">
+    <span class="tag t-cy">${isReady() ? "ONLINE" : "SETUP · 2 STEPS"}</span>
+    <div class="big">${isReady() ? "Vaani is ready" : "Connect Vaani"}</div>
+    ${step(1, s.signedIn, "Sign in with Google", signIn)}
+    ${step(2, s.hasGeminiKey, "Add your Gemini API key", key)}
+    ${step(3, isReady() && sy.total > 0 && sy.analyzed === sy.total, "Inbox analysis", progress)}
+    ${st.setupMsg ? `<p class="${st.setupErr ? "warn" : "ok"}">${esc(st.setupMsg)}</p>` : ""}
+    ${isReady() ? `<div class="acts"><button class="btn solid" data-cmd="give me today's summary">Give me today's summary</button></div><p class="hint2">Next time just say: <b>"${WAKE}, give me today's summary"</b></p>` : ""}
+  </div>`;
+}
+
+let statusTimer = 0;
+async function refreshStatus(): Promise<SetupStatus | null> {
+  const r = await api<SetupStatus>("/ext/status");
+  if (r.ok) {
+    st.setup = r.data;
+    st.connected = r.data.signedIn && r.data.clientIdOk;
+  }
+  if (st.view === "setup") render();
+  else renderMic();
+  // keep polling while something is happening
+  window.clearTimeout(statusTimer);
+  const busy = st.setup && (st.view === "setup" || st.setup.sync.state === "syncing" || st.setup.sync.state === "analyzing");
+  if (busy) statusTimer = window.setTimeout(() => void refreshStatus(), 2500);
+  return st.setup;
+}
+
+function openSetup(msg = "", err = false) {
+  runId++;
+  speaker.stop();
+  st.setupMsg = msg;
+  st.setupErr = err;
+  st.view = "setup";
+  st.menu = false;
+  render();
+  void refreshStatus();
+}
+
 function renderMic() {
   const l = listener;
   const blocked = l.state === "blocked" || l.state === "unsupported";
   const live = l.enabled && l.state === "listening";
-  const stateText = !st.connected
-    ? "NOT CONNECTED"
+  const stateText = !isReady()
+    ? "SETUP NEEDED"
     : l.state === "unsupported"
       ? "NO VOICE SUPPORT"
       : l.state === "blocked"
@@ -354,10 +429,10 @@ function renderMic() {
     pop = `<div class="menu">
       <div class="k mono">${AGENT} · CONTROL</div>
       ${
-        st.connected
+        isReady()
           ? `<p>${l.wakeWord ? `Say "${WAKE}, …" — for example "${WAKE}, give me today's summary".` : "Just speak a command."}</p>`
-          : `<p>${esc(st.connectError || "Open the Vaani dashboard and sign in once — it connects automatically.")}</p>
-             <div class="row"><button class="btn solid" data-act="dashboard">Open dashboard</button></div>`
+          : `<p>Two quick steps: sign in with Google and add your free Gemini key.</p>
+             <div class="row"><button class="btn solid" data-act="setup">Open setup</button></div>`
       }
       ${l.error ? `<p style="color:#ff9a9a">${esc(l.error)}</p>` : ""}
       <label>Microphone on <input type="checkbox" data-act="mic" ${l.enabled ? "checked" : ""}></label>
@@ -371,11 +446,11 @@ function renderMic() {
 
   const prevInput = (root.querySelector(".menu input[type=text]") as HTMLInputElement | null)?.value ?? "";
   const hadFocus = root.activeElement?.tagName === "INPUT";
-  $mic.innerHTML = `${pop}<button class="micbox ${blocked || !st.connected ? "bad" : ""}" data-act="menu" aria-label="Vaani microphone: ${stateText}">
+  $mic.innerHTML = `${pop}<button class="micbox ${blocked || !isReady() ? "bad" : ""}" data-act="menu" aria-label="Vaani microphone: ${stateText}">
       <span class="r"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" fill="none" stroke="rgba(70,217,255,.35)" stroke-width="1.5"/><circle cx="26" cy="26" r="18" fill="rgba(20,90,170,.55)" stroke="#9becff"/></svg>
         <svg viewBox="0 0 52 52" class="spin"><circle cx="26" cy="26" r="24" fill="none" stroke="#46d9ff" stroke-width="2.5" stroke-dasharray="20 9"/></svg>
         <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${l.enabled && !blocked ? "#fff" : "#ff9a9a"}" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4"/>${l.enabled && !blocked ? "" : '<path d="M3 3l18 18"/>'}</svg></span></span>
-      <span class="t"><b>${AGENT}</b><small><i class="${live ? "live" : blocked || !st.connected ? "bad" : ""}"></i>${stateText}</small></span>
+      <span class="t"><b>${AGENT}</b><small><i class="${live && isReady() ? "live" : blocked || !isReady() ? "bad" : ""}"></i>${stateText}</small></span>
       ${eq(Boolean(hearing) || speaker.speaking)}
     </button>`;
   const inp = root.querySelector(".menu input[type=text]") as HTMLInputElement | null;
@@ -414,10 +489,11 @@ async function loadBriefings(force = false): Promise<boolean> {
 }
 
 function handleApiError(error: string | undefined, status: number): false {
-  if (error === "NOT_CONNECTED" || status === 401) {
+  if (error === "NOT_SIGNED_IN" || status === 401) {
     st.connected = false;
-    st.connectError = "Not connected. Open the Vaani dashboard and sign in once — it connects automatically.";
-    showToast("NOT CONNECTED", "Open the Vaani dashboard and sign in once.", { err: true });
+    openSetup("Please sign in with Google first.", true);
+  } else if (error === "NEEDS_GEMINI_KEY") {
+    openSetup("Add your Gemini API key to use the AI.", true);
   } else {
     showToast("ERROR", error || "Something went wrong.", { err: true });
   }
@@ -460,8 +536,10 @@ async function run(text: string) {
   const myRun = ++runId;
   speaker.stop();
   // First command: wait for the data. Later: answer instantly and refresh in the background.
-  if (!st.day) await loadBriefings().catch(() => false);
-  else void loadBriefings().catch(() => false);
+  if (isReady()) {
+    if (!st.day) await loadBriefings().catch(() => false);
+    else void loadBriefings().catch(() => false);
+  }
   const cmd: Command = parseCommand(text, entities());
 
   // While a delete is waiting for confirmation, yes/no go to it.
@@ -472,6 +550,13 @@ async function run(text: string) {
       showToast("CANCELLED", "Nothing was deleted.");
     }
     return closeOverlay();
+  }
+
+  if (cmd.type === "setup") return openSetup();
+  // Not set up yet: every command leads to the setup panel.
+  if (!isReady() && !["stop", "close", "cancel"].includes(cmd.type)) {
+    await refreshStatus();
+    if (!isReady()) return openSetup("Finish setup first, then try again.", true);
   }
 
   switch (cmd.type) {
@@ -704,8 +789,22 @@ root.addEventListener("click", (e) => {
     st.menu = !st.menu;
     renderMic();
     if (st.menu) (root.querySelector(".menu input[type=text]") as HTMLInputElement | null)?.focus();
-  } else if (act === "dashboard") {
-    void getSettings().then((s) => window.open(s.server, "_blank", "noopener"));
+  } else if (act === "setup") {
+    openSetup();
+  } else if (act === "signin") {
+    st.setupBusy = true;
+    st.setupMsg = "Opening Google sign-in…";
+    st.setupErr = false;
+    render();
+    void api<{ email: string }>("/auth/signin", "POST").then((r) => {
+      st.setupBusy = false;
+      st.setupMsg = r.ok ? `Signed in as ${r.data.email}. Reading your inbox…` : r.error || "Sign-in failed.";
+      st.setupErr = !r.ok;
+      void refreshStatus();
+    });
+  } else if (act === "replacekey") {
+    if (st.setup) st.setup = { ...st.setup, hasGeminiKey: false };
+    render();
   }
 });
 
@@ -723,6 +822,25 @@ root.addEventListener("change", (e) => {
 
 root.addEventListener("submit", (e) => {
   e.preventDefault();
+  const form = e.target as HTMLElement;
+  if (form.dataset.act === "keyform") {
+    const input = form.querySelector("input") as HTMLInputElement;
+    const key = input.value.trim();
+    if (!key) return;
+    st.setupBusy = true;
+    st.setupMsg = "Checking your key…";
+    st.setupErr = false;
+    render();
+    void api<{ message: string }>("/settings/gemini", "PUT", { apiKey: key }).then((r) => {
+      st.setupBusy = false;
+      st.setupMsg = r.ok ? r.data.message : r.error || "Could not save the key.";
+      st.setupErr = !r.ok;
+      void refreshStatus().then(() => {
+        if (r.ok && isReady()) void say(`Vaani is ready. Say: ${WAKE}, give me today's summary.`);
+      });
+    });
+    return;
+  }
   const input = (e.target as HTMLElement).querySelector("input[type=text]") as HTMLInputElement | null;
   const text = input?.value.trim();
   if (!text) return;
@@ -760,10 +878,9 @@ chrome.storage.onChanged.addListener((changes) => {
     listener.lang = String(changes.recLang.newValue);
     listener.restart();
   }
-  if (changes.token) {
-    st.connected = Boolean(changes.token.newValue);
+  if (changes.account || changes.geminiKey || changes.sync) {
     st.loadedAt = 0;
-    renderMic();
+    void refreshStatus();
   }
 });
 
@@ -777,13 +894,34 @@ async function boot() {
   const s = await getSettings();
   listener.wakeWord = s.wakeWord;
   listener.lang = s.recLang;
-  const status = await api<{ email: string }>("/ext/status");
-  st.connected = status.ok;
-  if (!status.ok) st.connectError = status.error === "NOT_CONNECTED" ? "" : status.error ?? "";
-  renderMic();
+  const status = await refreshStatus();
   listener.setEnabled(s.micOn);
+  if (!status || !isReady()) {
+    openSetup(); // first run: show the 2-step setup right inside Gmail
+    return;
+  }
   // Warm the cache so the first command is instant.
-  if (status.ok) void loadBriefings().catch(() => undefined);
+  void loadBriefings().catch(() => undefined);
 }
 
 void boot();
+
+// ---------------------------------------------------------------------------
+// Test-only hook (removed from normal builds): lets the automated browser test
+// press buttons inside the closed shadow root.
+// ---------------------------------------------------------------------------
+declare const __TEST__: boolean;
+if (typeof __TEST__ !== "undefined" && __TEST__) {
+  document.addEventListener("vaani-test", (e) => {
+    const d = JSON.parse(String((e as CustomEvent).detail)) as { act?: string; key?: string; cmd?: string };
+    if (d.act) (root.querySelector(`[data-act="${d.act}"]`) as HTMLElement | null)?.click();
+    if (d.key) {
+      const f = root.querySelector('form[data-act="keyform"]') as HTMLFormElement | null;
+      if (f) {
+        (f.querySelector("input") as HTMLInputElement).value = d.key;
+        f.requestSubmit();
+      }
+    }
+    if (d.cmd) void run(d.cmd);
+  });
+}

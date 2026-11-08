@@ -1,32 +1,63 @@
 {
   "manifest_version": 3,
-  "name": "Vaani – Voice AI agent for Gmail",
+  "name": "Vaani \u2013 Voice AI agent for Gmail",
   "short_name": "Vaani",
-  "version": "0.2.0",
-  "description": "JARVIS-style voice agent that works on top of Gmail: spoken briefings, filters, open folders and clean up spam by voice.",
-  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
-  "action": { "default_title": "Vaani", "default_popup": "popup.html" },
-  "background": { "service_worker": "dist/background.js", "type": "module" },
-  "permissions": ["storage"],
+  "version": "1.0.0",
+  "description": "JARVIS-style voice agent inside Gmail: spoken briefings, filters, open folders and clean up spam by voice. No server needed.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyqe7AL0PO7xonEV2bPM3G6yqA60Yq2jUBl2hHT+nk7bzXow2IMUfPZoOlCl7GCBMbGV/RpdTXsNLTvSrET8bpZzgjDGZh9EQvVqrXqiwLYkb9Ls7dTm2ulbgYC8sGbMOWnjrD8wTc1+hN7CRiYIHDa7071d3pH/4aqKnuMBh/PlZj0xsGQbdRXfPywqgBSL+E8p9DUT11/8+X/dx6eoYP69BKgiEHHrJV1ITrD5zuUEmQY2KENx0ID7D5Y/f9NTzqok9ENamJpxAf2rR2/YL56yYLpbWrQ9i4g/3EF/wvtJzmmn/ELp60wpIjsqPrdPEDogfkNrOa2s5ZUFW/B5zVwIDAQAB",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Vaani",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "identity",
+    "alarms"
+  ],
   "host_permissions": [
     "https://mail.google.com/*",
-    "http://localhost:5173/*",
-    "http://localhost:4000/*",
-    "http://127.0.0.1:5173/*"
+    "https://gmail.googleapis.com/*",
+    "https://www.googleapis.com/*",
+    "https://oauth2.googleapis.com/*",
+    "https://generativelanguage.googleapis.com/*"
   ],
+  "oauth2": {
+    "client_id": "PASTE_YOUR_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
   "content_scripts": [
     {
-      "matches": ["https://mail.google.com/*"],
-      "js": ["dist/gmail.js"],
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "dist/gmail.js"
+      ],
       "run_at": "document_idle"
-    },
-    {
-      "matches": ["http://localhost:5173/*", "http://localhost:4000/*", "http://127.0.0.1:5173/*"],
-      "js": ["dist/connect.js"],
-      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
-    { "resources": ["fonts/*.woff2"], "matches": ["https://mail.google.com/*"] }
+    {
+      "resources": [
+        "fonts/*.woff2"
+      ],
+      "matches": [
+        "https://mail.google.com/*"
+      ]
+    }
   ]
 }

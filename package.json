@@ -2,7 +2,7 @@
   "name": "voice-email-agent",
   "version": "0.1.0",
   "private": true,
-  "description": "Multilingual voice-controlled AI email agent for Gmail (Phase 1 MVP)",
+  "description": "Vaani: multilingual voice AI agent that works inside Gmail (Chrome extension)",
   "workspaces": [
     "server",
     "web",
@@ -16,7 +16,9 @@
     "test": "npm run test -w server && npm run test -w extension",
     "prepare": "node scripts/setup-hooks.mjs",
     "check-secrets": "node scripts/check-secrets.mjs --all",
-    "build:extension": "npm run build -w extension"
+    "build:extension": "npm run build -w extension",
+    "set-client-id": "npm run set-client-id -w extension --",
+    "release": "npm run release -w extension"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"
