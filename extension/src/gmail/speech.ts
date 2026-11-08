@@ -86,11 +86,13 @@ export class Listener {
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
+    let startedAt = 0;
     rec.onstart = () => {
+      startedAt = Date.now();
+      const changed = this.state !== "listening";
       this.state = "listening";
       this.error = null;
-      this.backoff = 300;
-      this.onChange();
+      if (changed) this.onChange();
     };
     rec.onresult = (e) => {
       let interim = "";
@@ -118,21 +120,26 @@ export class Listener {
     rec.onend = () => {
       this.caption = "";
       if (this.rec !== rec) return;
+      // Sessions that end almost immediately (no mic, blocked, network) would otherwise
+      // restart in a tight loop — back off up to 10 s. Healthy sessions restart quickly.
+      const lived = startedAt ? Date.now() - startedAt : 0;
+      this.backoff = lived > 5000 ? 300 : Math.min(Math.max(this.backoff, 500) * 2, 10_000);
       if (this.enabled && !document.hidden) {
-        this.state = "starting";
+        // keep showing "listening" during the short gap so the UI doesn't flicker
         window.setTimeout(() => this.start(), this.backoff);
+      } else {
+        this.state = "off";
+        this.onChange();
       }
-      this.onChange();
     };
 
     this.rec = rec;
-    this.state = "starting";
+    if (this.state !== "listening") this.state = "starting";
     try {
       rec.start();
     } catch {
       window.setTimeout(() => this.start(), 1000);
     }
-    this.onChange();
   }
 
   private handleFinal(raw: string) {

@@ -251,6 +251,44 @@ function readouts(b: Briefing | null) {
     <div class="ro"><div class="k mono">SCAM BLOCKED</div><div class="v" style="color:${s.scamCount ? "#ff9a9a" : "inherit"}">${s.scamCount}</div></div></div>`;
 }
 
+/**
+ * Updates a part of the overlay WITHOUT the "restart" effect:
+ * - skips the update when nothing changed (animations keep running),
+ * - keeps what the user is typing, the cursor position and the scroll position.
+ */
+const lastHtml = new WeakMap<Element, string>();
+let renderCount = 0;
+function patch(el: HTMLElement, html: string) {
+  if (lastHtml.get(el) === html) return;
+  renderCount++;
+  const inputs = new Map<string, { value: string; focused: boolean; start: number | null; end: number | null }>();
+  el.querySelectorAll("input[type=text], input[type=password]").forEach((n) => {
+    const i = n as HTMLInputElement;
+    const key = i.getAttribute("aria-label") ?? "";
+    inputs.set(key, { value: i.value, focused: root.activeElement === i, start: i.selectionStart, end: i.selectionEnd });
+  });
+  const scrolls = new Map<string, number>();
+  el.querySelectorAll(".setup, .stack, .cols").forEach((n) => scrolls.set(n.className.split(" ").find((c) => ["setup", "stack", "cols"].includes(c))!, n.scrollTop));
+
+  el.innerHTML = html;
+  lastHtml.set(el, html);
+
+  el.querySelectorAll("input[type=text], input[type=password]").forEach((n) => {
+    const i = n as HTMLInputElement;
+    const prev = inputs.get(i.getAttribute("aria-label") ?? "");
+    if (!prev) return;
+    i.value = prev.value;
+    if (prev.focused) {
+      i.focus();
+      if (prev.start !== null) i.setSelectionRange(prev.start, prev.end ?? prev.start);
+    }
+  });
+  scrolls.forEach((top, cls) => {
+    const n = el.querySelector(`.${cls}`);
+    if (n) n.scrollTop = top;
+  });
+}
+
 function render() {
   if (st.view === "none") {
     $ov.className = "overlay";
@@ -343,7 +381,7 @@ function render() {
       </div>${coreHtml("AWAITING CONFIRMATION")}${subtitleHtml()}`;
   }
   $ov.className = `overlay open ${st.view === "full" ? "full" : ""}`;
-  $ov.innerHTML = frame + body;
+  patch($ov, frame + body);
   renderMic();
 }
 
@@ -410,7 +448,16 @@ function setupPanel() {
   </div>`;
 }
 
-let statusTimer = 0;
+let statusQueued = 0;
+/** Refresh at most once per second, only when stored data actually changed. */
+function scheduleStatus() {
+  if (statusQueued) return;
+  statusQueued = window.setTimeout(() => {
+    statusQueued = 0;
+    void refreshStatus();
+  }, 1000);
+}
+
 async function refreshStatus(): Promise<SetupStatus | null> {
   const r = await api<SetupStatus>("/ext/status");
   if (r.ok) {
@@ -419,10 +466,6 @@ async function refreshStatus(): Promise<SetupStatus | null> {
   }
   if (st.view === "setup") render();
   else renderMic();
-  // keep polling while something is happening
-  window.clearTimeout(statusTimer);
-  const busy = st.setup && (st.view === "setup" || st.setup.sync.state === "syncing" || st.setup.sync.state === "analyzing");
-  if (busy) statusTimer = window.setTimeout(() => void refreshStatus(), 2500);
   return st.setup;
 }
 
@@ -476,20 +519,13 @@ function renderMic() {
     pop = `<div class="caption"><small>${hearing ? "HEARING" : AGENT}</small>${hearing ? `"${esc(l.caption)}"` : "Go ahead, I'm listening…"}</div>`;
   }
 
-  const prevInput = (root.querySelector(".menu input[type=text]") as HTMLInputElement | null)?.value ?? "";
-  const hadFocus = root.activeElement?.tagName === "INPUT";
-  $mic.innerHTML = `${pop}<button class="micbox ${blocked || !isReady() ? "bad" : ""}" data-act="menu" aria-label="Vaani microphone: ${stateText}">
+  patch($mic, `${pop}<button class="micbox ${blocked || !isReady() ? "bad" : ""}" data-act="menu" aria-label="Vaani microphone: ${stateText}">
       <span class="r"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" fill="none" stroke="rgba(70,217,255,.35)" stroke-width="1.5"/><circle cx="26" cy="26" r="18" fill="rgba(20,90,170,.55)" stroke="#9becff"/></svg>
         <svg viewBox="0 0 52 52" class="spin"><circle cx="26" cy="26" r="24" fill="none" stroke="#46d9ff" stroke-width="2.5" stroke-dasharray="20 9"/></svg>
         <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${l.enabled && !blocked ? "#fff" : "#ff9a9a"}" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4"/>${l.enabled && !blocked ? "" : '<path d="M3 3l18 18"/>'}</svg></span></span>
       <span class="t"><b>${AGENT}</b><small><i class="${live && isReady() ? "live" : blocked || !isReady() ? "bad" : ""}"></i>${stateText}</small></span>
       ${eq(Boolean(hearing) || speaker.speaking)}
-    </button>`;
-  const inp = root.querySelector(".menu input[type=text]") as HTMLInputElement | null;
-  if (inp) {
-    inp.value = prevInput;
-    if (hadFocus) inp.focus();
-  }
+    </button>`);
 }
 
 function showToast(label: string, text: string, opts: { err?: boolean; undo?: boolean; ms?: number } = {}) {
@@ -936,9 +972,9 @@ chrome.storage.onChanged.addListener((changes) => {
     listener.lang = String(changes.recLang.newValue);
     listener.restart();
   }
-  if (changes.account || changes.geminiKey || changes.sync) {
+  if (changes.account || changes.geminiKey || changes.sync || changes.emails || changes.clientId) {
     st.loadedAt = 0;
-    void refreshStatus();
+    scheduleStatus();
   }
 });
 
@@ -981,6 +1017,21 @@ if (typeof __TEST__ !== "undefined" && __TEST__) {
       }
     }
     if (d.cmd) void run(d.cmd);
+    const dd = d as { type?: string; dump?: boolean };
+    if (dd.type !== undefined) {
+      const i = root.querySelector('form[data-act="clientform"] input') as HTMLInputElement | null;
+      if (i) {
+        i.focus();
+        i.value = dd.type;
+      }
+      const box = root.querySelector(".setup") as HTMLElement | null;
+      if (box) box.scrollTop = 300;
+    }
+    if (dd.dump) {
+      const i = root.querySelector('form[data-act="clientform"] input') as HTMLInputElement | null;
+      const box = root.querySelector(".setup") as HTMLElement | null;
+      document.documentElement.dataset.vaaniDump = JSON.stringify({ value: i?.value ?? null, focused: root.activeElement === i, scroll: box?.scrollTop ?? null, renders: renderCount });
+    }
     if ((d as { client?: string }).client) {
       const f = root.querySelector('form[data-act="clientform"]') as HTMLFormElement | null;
       if (f) {
