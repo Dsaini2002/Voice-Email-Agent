@@ -29,7 +29,18 @@ async function render() {
   }
   const d = res.data;
   if (!d.clientIdOk) {
-    status.append(el("div", "warn", "No Google Client ID in this copy. The owner must add it (README → Owner setup)."));
+    status.append(el("div", "warn", "Step 1: connect your own Google Client ID."));
+    status.append(el("div", "muted", "Open Gmail — the setup wizard guides you (about 5 minutes, one time). Or paste it here:"));
+    const input = Object.assign(document.createElement("input"), { type: "text", placeholder: "…apps.googleusercontent.com" });
+    const btn = el("button", "", "Save Client ID");
+    const msg = el("div", "muted", "");
+    btn.addEventListener("click", async () => {
+      const r = await api("/settings/client", "PUT", { clientId: input.value.trim() });
+      msg.textContent = r.ok ? "Saved." : r.error ?? "Failed";
+      msg.className = r.ok ? "muted" : "warn";
+      if (r.ok) setTimeout(render, 500);
+    });
+    status.append(input, btn, msg);
   } else if (d.signedIn) {
     status.innerHTML = '<span class="dot ok"></span>Signed in';
     status.append(el("div", "muted", d.email));

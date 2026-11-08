@@ -8,7 +8,6 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "set-client-id": "node set-client-id.mjs",
     "release": "node release.mjs"
   },
   "dependencies": {

@@ -4,7 +4,8 @@
 
 - No Vaani server: the extension talks directly to Gmail (with the user's Google sign-in via `chrome.identity`) and to Gemini (with the user's own key).
 - Everything Vaani stores (redacted email copies, analysis, the user's Gemini key, the last action for Undo) lives in that browser profile's `chrome.storage.local`, which web pages, including Gmail, cannot read. **Sign out** revokes Google access and deletes it all.
-- The OAuth **Client ID** in `manifest.json` is public by design (Chrome-extension clients have no secret), so it is fine to commit and share.
+- Each user signs in with **their own** Google OAuth Client ID (their own Cloud project), via `chrome.identity.launchWebAuthFlow`. A Client ID is not a secret. The extension never asks for, or accepts, a Client **secret** (it refuses anything that looks like `GOCSPX-…`).
+- Access tokens live only in `chrome.storage.session` (memory, cleared when the browser closes) and are renewed silently. A random `state` value protects the sign-in against CSRF, and Vaani checks that Gmail permission was really granted.
 - The overlay runs in a closed Shadow DOM, all email text is HTML-escaped before display, and the test-only hook is removed from normal builds.
 
 

@@ -129,7 +129,16 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .confirm .say { margin-top: 14px; font-size: 18px; } .confirm .say b { color: var(--cy); }
 
 /* setup panel */
-.confirm.setup { width: min(620px, 48vw); border-color: var(--cy); }
+.confirm.setup { width: min(660px, 52vw); border-color: var(--cy); max-height: calc(100vh - 200px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.wiz { list-style: none; margin-top: 10px; display: grid; gap: 8px; }
+.wiz li { display: flex; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-left: 1px solid var(--line); background: rgba(70,200,255,.05); white-space: normal; overflow: visible; text-overflow: clip; font-size: 15px; }
+.wiz li > div { min-width: 0; flex: 1; }
+.wiz .sn { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--cy2); color: var(--cy2); font-family: var(--f-mono); font-size: 11px; }
+.wiz b { color: var(--white); } .wiz p { margin-top: 2px !important; font-size: 15px !important; }
+.wiz code { display: inline-block; margin: 4px 0; padding: 2px 6px; background: rgba(2,8,20,.8); border: 1px solid var(--line); color: var(--cy2); font-family: var(--f-mono); font-size: 12px; word-break: break-all; }
+.wiz .acts { margin-top: 6px; gap: 6px; }
+.btn.sm { font-size: 12px; padding: 5px 10px; text-decoration: none; display: inline-block; }
+.tiny { font-size: 13px !important; margin-top: 6px !important; }
 .step { display: flex; gap: 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .step .num { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--cy); color: var(--cy); font-family: var(--f-hud); font-size: 13px; }
 .step.done .num { background: var(--cy); color: var(--ink); }

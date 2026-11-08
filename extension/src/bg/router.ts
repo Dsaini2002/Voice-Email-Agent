@@ -4,7 +4,8 @@
  */
 import type { Lang } from "../../../shared/types";
 import { analyzePending, ask, briefing, GeminiError, validateKey } from "./ai";
-import { AuthError, clientIdConfigured, signIn, signOutAndDelete } from "./auth";
+import { AuthError, clientIdConfigured, redirectUri, setClientId, signIn, signOutAndDelete } from "./auth";
+import { CLIENT_ID_RE, normalizeClientId } from "./oauth";
 import { gmail, GmailError, header } from "./gmail";
 import { db } from "./store";
 import { runSync } from "./sync";
@@ -38,10 +39,13 @@ export async function handle(path: string, method = "GET", body?: unknown): Prom
   try {
     // ----- status & setup -----
     if (p === "/ext/status") {
-      const [account, key, sync, emails] = await Promise.all([db.get("account"), db.get("geminiKey"), db.sync(), db.emails()]);
+      const [account, key, sync, emails, clientId] = await Promise.all([db.get("account"), db.get("geminiKey"), db.sync(), db.emails(), db.get("clientId")]);
       const list = Object.values(emails);
       return ok({
-        clientIdOk: clientIdConfigured(),
+        clientIdOk: await clientIdConfigured(),
+        clientIdShort: clientId ? `${clientId.slice(0, 12)}…` : null,
+        redirectUri: redirectUri(),
+        extensionId: chrome.runtime.id,
         signedIn: Boolean(account),
         email: account?.email ?? "",
         name: account?.name ?? "",
@@ -50,6 +54,15 @@ export async function handle(path: string, method = "GET", body?: unknown): Prom
         canModify: true,
         sync: { ...sync, total: list.length, analyzed: list.filter((e) => e.analyzedAt).length },
       });
+    }
+    if (p === "/settings/client" && method === "PUT") {
+      const id = normalizeClientId(String(b.clientId ?? ""));
+      if (/GOCSPX-/i.test(id)) return fail(400, "That is the Client SECRET. Paste the Client ID (ends with .apps.googleusercontent.com). Never share the secret.");
+      if (!CLIENT_ID_RE.test(id)) return fail(400, "That does not look like a Client ID. It should end with .apps.googleusercontent.com");
+      const prev = await db.get("clientId");
+      if (prev && prev !== id) await signOutAndDelete();
+      await setClientId(id);
+      return ok({ clientIdOk: true });
     }
     if (p === "/auth/signin" && method === "POST") {
       const account = await signIn();

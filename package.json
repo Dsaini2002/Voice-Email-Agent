@@ -17,7 +17,6 @@
     "prepare": "node scripts/setup-hooks.mjs",
     "check-secrets": "node scripts/check-secrets.mjs --all",
     "build:extension": "npm run build -w extension",
-    "set-client-id": "npm run set-client-id -w extension --",
     "release": "npm run release -w extension"
   },
   "devDependencies": {

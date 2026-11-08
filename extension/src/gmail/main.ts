@@ -83,6 +83,8 @@ type View = "none" | "briefing" | "list" | "focus" | "full" | "confirm" | "think
 
 interface SetupStatus {
   clientIdOk: boolean;
+  clientIdShort: string | null;
+  redirectUri: string;
   signedIn: boolean;
   email: string;
   name: string;
@@ -347,16 +349,45 @@ function render() {
 
 const isReady = () => Boolean(st.setup?.clientIdOk && st.setup.signedIn && st.setup.hasGeminiKey);
 
+const CONSOLE = {
+  project: "https://console.cloud.google.com/projectcreate",
+  gmailApi: "https://console.cloud.google.com/apis/library/gmail.googleapis.com",
+  consent: "https://console.cloud.google.com/auth/overview",
+  audience: "https://console.cloud.google.com/auth/audience",
+  client: "https://console.cloud.google.com/auth/clients/create",
+};
+let editClient = false;
+
+function wizard(s: SetupStatus) {
+  const open = (url: string, label: string) => `<a class="btn sm" href="${url}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`;
+  const copy = (text: string) => `<button class="btn sm ghost" data-copy="${esc(text)}">Copy</button>`;
+  const sub = (n: string, title: string, body: string, action: string) =>
+    `<li><span class="sn">${n}</span><div><b>${title}</b><p>${body}</p><div class="acts">${action}</div></div></li>`;
+  return `<ol class="wiz">
+    ${sub("a", "Create a Google Cloud project", "Name it <b>Vaani</b> → <b>Create</b>. Make sure it is selected in the top bar.", open(CONSOLE.project, "Open"))}
+    ${sub("b", "Turn on the Gmail API", "Press <b>Enable</b>.", open(CONSOLE.gmailApi, "Open"))}
+    ${sub("c", "Set up the consent screen", "<b>Get started</b> → App name <b>Vaani</b>, your email → Audience <b>External</b> → your email → agree → <b>Create</b>.", open(CONSOLE.consent, "Open"))}
+    ${sub("d", "Add yourself as a test user", "<b>Test users</b> → <b>Add users</b> → your Gmail address → <b>Save</b>.", open(CONSOLE.audience, "Open"))}
+    ${sub("e", "Create the Client ID", `Application type <b>Web application</b> → under <b>Authorized redirect URIs</b> press <b>Add URI</b> and paste:<br><code>${esc(s.redirectUri)}</code><br>→ <b>Create</b> → copy the <b>Client ID</b>.`, `${copy(s.redirectUri)}${open(CONSOLE.client, "Open")}`)}
+  </ol>
+  <form data-act="clientform" class="keyform"><input type="text" placeholder="Paste your Client ID (…apps.googleusercontent.com)" autocomplete="off" spellcheck="false" aria-label="Google Client ID"/><button class="btn solid" type="submit" ${st.setupBusy ? "disabled" : ""}>Save</button></form>
+  <p class="tiny">The Client ID is not a secret. Never paste the <b>Client secret</b> anywhere.</p>`;
+}
+
 function setupPanel() {
   const s = st.setup;
-  if (!s) return `<div class="confirm pa"><div class="big">Loading…</div></div>`;
+  if (!s) return `<div class="confirm setup pa"><div class="big">Loading…</div></div>`;
   const step = (n: number, done: boolean, title: string, body: string) =>
-    `<div class="step ${done ? "done" : ""}"><span class="num">${done ? "✓" : n}</span><div><div class="st">${title}</div>${body}</div></div>`;
+    `<div class="step ${done ? "done" : ""}"><span class="num">${done ? "✓" : n}</span><div style="min-width:0;flex:1"><div class="st">${title}</div>${body}</div></div>`;
+  const client =
+    s.clientIdOk && !editClient
+      ? `<p>Your own Client ID is connected <b>${esc(s.clientIdShort ?? "")}</b> <button class="lnk" data-act="changeclient">Change</button></p>`
+      : `<p>One time, about 5 minutes. You get your own Google connection, so there is <b>no user limit</b> and no one else's project is involved.</p>${wizard(s)}`;
   const signIn = !s.clientIdOk
-    ? `<p class="warn">This copy of Vaani has no Google Client ID yet. Ask the person who shared it to complete "Owner setup" in the README.</p>`
+    ? `<p>Finish step 1 first.</p>`
     : s.signedIn
       ? `<p>Signed in as <b>${esc(s.email)}</b></p>`
-      : `<p>Vaani reads your Gmail directly from this browser. Nothing goes to any Vaani server.</p><div class="acts"><button class="btn solid" data-act="signin" ${st.setupBusy ? "disabled" : ""}>Sign in with Google</button></div>`;
+      : `<p>Vaani reads your Gmail directly from this browser. Nothing goes to any Vaani server. If Google says "app isn't verified", press <b>Continue</b> — it is your own app.</p><div class="acts"><button class="btn solid" data-act="signin" ${st.setupBusy ? "disabled" : ""}>Sign in with Google</button></div>`;
   const key = s.hasGeminiKey
     ? `<p>Key connected · •••• ${esc(s.keyLast4 ?? "")} <button class="lnk" data-act="replacekey">Replace</button></p>`
     : `<p>The AI runs on <b>your own free</b> Gemini key. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Get a key from Google AI Studio ↗</a> → "Create API key" → paste it here.</p>
@@ -368,12 +399,13 @@ function setupPanel() {
       ? `<p>${esc(sy.message || "Reading your inbox…")}</p>`
       : `<p>${sy.analyzed} of ${sy.total} emails analysed. ${esc(sy.message)}</p><div class="bar" style="margin-top:8px"><i style="width:${Math.round((sy.analyzed / Math.max(1, sy.total)) * 100)}%"></i></div>`;
   return `<div class="confirm setup pa">
-    <span class="tag t-cy">${isReady() ? "ONLINE" : "SETUP · 2 STEPS"}</span>
+    <span class="tag t-cy">${isReady() ? "ONLINE" : "SETUP"}</span>
     <div class="big">${isReady() ? "Vaani is ready" : "Connect Vaani"}</div>
-    ${step(1, s.signedIn, "Sign in with Google", signIn)}
-    ${step(2, s.hasGeminiKey, "Add your Gemini API key", key)}
-    ${step(3, isReady() && sy.total > 0 && sy.analyzed === sy.total, "Inbox analysis", progress)}
     ${st.setupMsg ? `<p class="${st.setupErr ? "warn" : "ok"}">${esc(st.setupMsg)}</p>` : ""}
+    ${step(1, s.clientIdOk && !editClient, "Your Google connection", client)}
+    ${step(2, s.signedIn, "Sign in with Google", signIn)}
+    ${step(3, s.hasGeminiKey, "Add your Gemini API key", key)}
+    ${step(4, isReady() && sy.total > 0 && sy.analyzed === sy.total, "Inbox analysis", progress)}
     ${isReady() ? `<div class="acts"><button class="btn solid" data-cmd="give me today's summary">Give me today's summary</button></div><p class="hint2">Next time just say: <b>"${WAKE}, give me today's summary"</b></p>` : ""}
   </div>`;
 }
@@ -431,7 +463,7 @@ function renderMic() {
       ${
         isReady()
           ? `<p>${l.wakeWord ? `Say "${WAKE}, …" — for example "${WAKE}, give me today's summary".` : "Just speak a command."}</p>`
-          : `<p>Two quick steps: sign in with Google and add your free Gemini key.</p>
+          : `<p>One-time setup: connect your own Google Client ID, sign in, and add your free Gemini key.</p>
              <div class="row"><button class="btn solid" data-act="setup">Open setup</button></div>`
       }
       ${l.error ? `<p style="color:#ff9a9a">${esc(l.error)}</p>` : ""}
@@ -762,6 +794,14 @@ async function doUndo() {
 // events
 // ---------------------------------------------------------------------------
 root.addEventListener("click", (e) => {
+  const cp = (e.target as HTMLElement).closest("[data-copy]") as HTMLElement | null;
+  if (cp) {
+    void navigator.clipboard.writeText(cp.dataset.copy ?? "").then(() => {
+      cp.textContent = "Copied ✓";
+      window.setTimeout(() => (cp.textContent = "Copy"), 1500);
+    });
+    return;
+  }
   const el = (e.target as HTMLElement).closest("[data-cmd],[data-act],[data-focus],[data-speak]") as HTMLElement | null;
   if (!el) return;
   const cmd = el.dataset.cmd;
@@ -802,6 +842,9 @@ root.addEventListener("click", (e) => {
       st.setupErr = !r.ok;
       void refreshStatus();
     });
+  } else if (act === "changeclient") {
+    editClient = true;
+    render();
   } else if (act === "replacekey") {
     if (st.setup) st.setup = { ...st.setup, hasGeminiKey: false };
     render();
@@ -823,6 +866,21 @@ root.addEventListener("change", (e) => {
 root.addEventListener("submit", (e) => {
   e.preventDefault();
   const form = e.target as HTMLElement;
+  if (form.dataset.act === "clientform") {
+    const input = form.querySelector("input") as HTMLInputElement;
+    const id = input.value.trim();
+    if (!id) return;
+    st.setupBusy = true;
+    render();
+    void api("/settings/client", "PUT", { clientId: id }).then((r) => {
+      st.setupBusy = false;
+      st.setupMsg = r.ok ? "Client ID saved. Now sign in with Google (step 2)." : r.error || "Could not save the Client ID.";
+      st.setupErr = !r.ok;
+      if (r.ok) editClient = false;
+      void refreshStatus();
+    });
+    return;
+  }
   if (form.dataset.act === "keyform") {
     const input = form.querySelector("input") as HTMLInputElement;
     const key = input.value.trim();
@@ -923,5 +981,12 @@ if (typeof __TEST__ !== "undefined" && __TEST__) {
       }
     }
     if (d.cmd) void run(d.cmd);
+    if ((d as { client?: string }).client) {
+      const f = root.querySelector('form[data-act="clientform"]') as HTMLFormElement | null;
+      if (f) {
+        (f.querySelector("input") as HTMLInputElement).value = (d as { client?: string }).client!;
+        f.requestSubmit();
+      }
+    }
   });
 }

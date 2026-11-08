@@ -29,6 +29,8 @@ export interface SyncState {
 }
 
 interface Schema {
+  /** The user's own Google OAuth Client ID (not a secret). */
+  clientId: string;
   account: Account;
   geminiKey: string;
   sync: SyncState;
