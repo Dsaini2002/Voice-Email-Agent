@@ -22,8 +22,13 @@ const schema = z.object({
   GEMINI_MODEL: z.string().default("gemini-flash-latest"),
   GEMINI_MIN_INTERVAL_MS: z.coerce.number().default(4000),
 
-  MONGODB_URI: z.string().default("mongodb://localhost:27017"),
+  // Storage: by default everything is saved as JSON files in DATA_DIR (no database to install).
+  // Set MONGODB_URI only if you want MongoDB instead (large deployments).
+  DATA_DIR: z.string().default("./data"),
+  MONGODB_URI: z.string().optional().default(""),
   MONGODB_DB: z.string().default("vaanimail"),
+  /** Delete stored (redacted) email copies older than this many days. Gmail itself is never touched. */
+  RETENTION_DAYS: z.coerce.number().min(1).max(365).default(30),
 
   ENCRYPTION_KEY: z.string().regex(hex64, "ENCRYPTION_KEY must be 64 hex characters"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),

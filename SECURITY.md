@@ -12,6 +12,7 @@
 | `SESSION_SECRET` | sirf `server/.env` | Koi fake login session bana sakta hai |
 | `PUBSUB_VERIFICATION_TOKEN` | sirf `server/.env` | Koi fake "naya mail aaya" signal bhej sakta hai |
 | Google credential JSON (`client_secret_*.json`) | repository ke **bahar** rakho | Client secret leak |
+| `server/data/*.json` (app ka database) | sirf server par | Users ki list, encrypted tokens aur redacted email copies. `.gitignore` aur secret check dono ise GitHub par jaane se rokte hain |
 
 GitHub par sirf **`server/.env.example`** jaata hai, jisme koi asli value nahi hoti.
 

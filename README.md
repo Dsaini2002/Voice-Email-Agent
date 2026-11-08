@@ -32,7 +32,7 @@ Is phase ka goal: **"Aaj kya important aaya?" ka sahi jawab, 30 seconds mein.**
 | **Secret protection**: commit se pehle API keys / .env automatically block | `scripts/check-secrets.mjs`, `.githooks/pre-commit` |
 | "Delete my data": Google access revoke + sab data delete | `server/src/auth/routes.ts` |
 
-**Tech:** TypeScript everywhere. Backend: Node.js + Express. Frontend: React + Vite + Tailwind. Database: MongoDB. AI: Google Gemini.
+**Tech:** TypeScript everywhere. Backend: Node.js + Express. Frontend: React + Vite + Tailwind. Database: built-in JSON files (MongoDB optional). AI: Google Gemini.
 
 ```
 voice-email-agent/
@@ -99,7 +99,7 @@ Settings ke liye Chrome toolbar mein Vaani icon par click karo: mic on/off, wake
 |---|---|---|
 | Google OAuth Client ID/Secret | **App chalane wala (server owner)**, ek baar | Isse "Google se login" ka button chalta hai. Har user apne Google account se login karta hai. Iska koi kharcha nahi hai. |
 | **Gemini API key** | **Har user khud** (dashboard mein) | AI ka usage har user ki apni free key par chalta hai. Owner ki key kisi aur ke liye use nahi hoti. |
-| MongoDB, ENCRYPTION_KEY, SESSION_SECRET | Server owner | Server ka data aur security |
+| ENCRYPTION_KEY, SESSION_SECRET (data JSON files mein apne aap save hota hai) | Server owner | Server ka data aur security |
 
 Pehli baar login karne par dashboard par **"Apni free Gemini API key jodo"** card dikhta hai, jisme 3 steps hain:
 1. aistudio.google.com/apikey kholo.
@@ -146,11 +146,11 @@ Key ek baar check hoti hai, phir encrypted save hoti hai, aur browser ko kabhi w
 
 Kuch karne ki zarurat nahi hai. Har user login ke baad **dashboard mein apni key khud daalta hai**, upar dekho. *(Sirf personal use ke liye `ALLOW_SERVER_GEMINI_KEY=true` set kar sakte ho.)*
 
-### 3. MongoDB (dono mein se ek)
+### 3. Database: kuch install nahi karna
 
-- **Option A: MongoDB Atlas (free, kuch install nahi karna)**: https://www.mongodb.com/cloud/atlas → free M0 cluster banao → Database user banao → *Network Access* mein apna IP allow karo → *Connect → Drivers* se connection string copy karo (`mongodb+srv://...`).
-- **Option B: Laptop par**: [MongoDB Community Server](https://www.mongodb.com/try/download/community) install karo (Windows par service ke roop mein chalega). Connection string: `mongodb://localhost:27017`
-- *(Docker ho to: `docker compose up -d` is folder mein.)*
+App apna data (users, settings, emails ki redacted copies) **JSON files** mein `server/data/` folder mein save karta hai. MongoDB ya koi aur database install karne ki zarurat nahi hai, aur ye folder pehli baar chalane par apne aap ban jaata hai.
+
+> Bahut saare users ke liye bada server chalana ho, to `server/.env` mein `MONGODB_URI` daal do. Tab wahi code MongoDB par chalega, warna JSON files hi use hongi.
 
 ### 4. `.env` file banao
 
@@ -173,7 +173,6 @@ Ab `server/.env` kholo aur ye values bharo:
 ```
 GOOGLE_CLIENT_ID=...         (step 1)
 GOOGLE_CLIENT_SECRET=...     (step 1)
-MONGODB_URI=...              (step 3)
 ENCRYPTION_KEY=...           (64 hex characters)
 SESSION_SECRET=...
 ```
@@ -312,7 +311,8 @@ OAuth client mein bhi naya origin aur redirect URI add karna mat bhoolna.
 | Problem | Solution |
 |---|---|
 | `.env configuration problem` | Error message mein jo field likhi hai, wo `server/.env` mein bharo |
-| `MongoDB chal nahi raha` | MongoDB service start karo, ya Atlas connection string check karo (IP allow list bhi) |
+| `MONGODB_URI is set but MongoDB is not reachable` | `server/.env` se `MONGODB_URI` hata do. App apne built-in JSON storage par chal jaayega |
+| HTTP 502 jab "Sign in with Google" dabate ho | Backend (port 4000) nahi chal raha. Terminal ki `[server]` lines dekho, aksar `.env` mein koi value khaali hoti hai |
 | `redirect_uri_mismatch` | OAuth client ke redirect URI aur `.env` ka `GOOGLE_REDIRECT_URI` **bilkul same** hone chahiye |
 | `access_denied` / "app not verified" block | OAuth consent screen → Test users mein apna email add karo |
 | Har ~7 din baad dobara login | Testing mode mein Google refresh tokens 7 din mein expire karta hai. Ye normal hai. |

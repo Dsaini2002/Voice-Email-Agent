@@ -26,6 +26,10 @@ token*.json
 *.p12
 *.pfx
 
+# App data (users, encrypted tokens, redacted email copies) — never commit
+server/data/
+data/*.json
+
 # ---------- Logs & OS junk ----------
 *.log
 npm-debug.log*

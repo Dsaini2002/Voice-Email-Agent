@@ -1,4 +1,5 @@
-# Optional: run MongoDB locally with Docker →  docker compose up -d
+# OPTIONAL: only if you want MongoDB instead of the built-in JSON storage.
+#   docker compose up -d   then set MONGODB_URI=mongodb://localhost:27017 in server/.env
 services:
   mongo:
     image: mongo:7

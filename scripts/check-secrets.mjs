@@ -18,6 +18,7 @@ const BLOCKED_FILES = [
   { re: /(^|\/)(client_secret|credentials)[^/]*\.json$/i, why: "Google credentials file" },
   { re: /service-account[^/]*\.json$|-sa-key[^/]*\.json$/i, why: "service account key" },
   { re: /\.(pem|key|p12|pfx)$/i, why: "private key / certificate" },
+  { re: /(^|\/)server\/data\/[^/]+\.json$/, why: "app database file (user data)" },
 ];
 
 const PATTERNS = [

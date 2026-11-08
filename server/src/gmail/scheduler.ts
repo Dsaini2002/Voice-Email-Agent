@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { users } from "../db.js";
+import { emails, users } from "../db.js";
 import { incrementalSync } from "./sync.js";
 import { startWatch } from "./watch.js";
 
@@ -27,6 +27,15 @@ export function startScheduler(): void {
     }
   };
   setInterval(tick, intervalMs);
+
+  // Keep storage small: drop our copies of old emails (Gmail itself is not touched).
+  const prune = async () => {
+    const cutoff = new Date(Date.now() - config.RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const { deletedCount } = await emails().deleteMany({ date: { $lt: cutoff } });
+    if (deletedCount) console.log(`🧹 Removed ${deletedCount} stored emails older than ${config.RETENTION_DAYS} days`);
+  };
+  setInterval(() => void prune().catch(() => undefined), 6 * 60 * 60 * 1000);
+  void prune().catch(() => undefined);
 
   if (config.SYNC_MODE === "pubsub") {
     const renew = async () => {

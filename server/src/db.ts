@@ -1,6 +1,8 @@
-import { MongoClient, type Collection, type Db, type ObjectId } from "mongodb";
+import path from "node:path";
+import { MongoClient, type Db, type ObjectId } from "mongodb";
 import type { EmailAnalysis } from "../../shared/types.js";
 import { config } from "./config.js";
+import { openJsonStore, type Coll } from "./store.js";
 
 export interface UserDoc {
   _id?: ObjectId;
@@ -54,26 +56,48 @@ export interface ActionDoc {
   undoneAt: Date | null;
 }
 
-let client: MongoClient;
-let db: Db;
+let mongo: MongoClient | null = null;
+let json: ReturnType<typeof openJsonStore> | null = null;
+let db: Db | null = null;
 
-export async function connectDb(): Promise<Db> {
-  client = new MongoClient(config.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
-  await client.connect();
-  db = client.db(config.MONGODB_DB);
-  await users().createIndex({ googleId: 1 }, { unique: true });
-  await emails().createIndex({ userId: 1, gmailId: 1 }, { unique: true });
-  await emails().createIndex({ userId: 1, date: -1 });
-  await emails().createIndex({ userId: 1, analyzedAt: 1 });
-  await users().createIndex({ extTokenHash: 1 }, { sparse: true });
-  await actions().createIndex({ userId: 1, createdAt: -1 });
-  return db;
+export type StorageKind = "json" | "mongodb";
+export let storage: StorageKind = "json";
+
+/**
+ * Default: built-in JSON files in DATA_DIR (nothing to install).
+ * If MONGODB_URI is set, MongoDB is used instead (for big deployments).
+ */
+export async function connectDb(): Promise<StorageKind> {
+  if (config.MONGODB_URI) {
+    storage = "mongodb";
+    mongo = new MongoClient(config.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
+    await mongo.connect();
+    db = mongo.db(config.MONGODB_DB);
+    await users().createIndex({ googleId: 1 }, { unique: true });
+    await emails().createIndex({ userId: 1, gmailId: 1 }, { unique: true });
+    await emails().createIndex({ userId: 1, date: -1 });
+    await emails().createIndex({ userId: 1, analyzedAt: 1 });
+    await users().createIndex({ extTokenHash: 1 }, { sparse: true });
+    await actions().createIndex({ userId: 1, createdAt: -1 });
+  } else {
+    storage = "json";
+    json = openJsonStore(config.DATA_DIR ? path.resolve(config.DATA_DIR) : null);
+  }
+  return storage;
 }
 
+/** Saves pending JSON writes (call before exit) and closes MongoDB. */
 export async function closeDb(): Promise<void> {
-  await client?.close();
+  await json?.flushAll();
+  await mongo?.close();
 }
 
-export const users = (): Collection<UserDoc> => db.collection<UserDoc>("users");
-export const emails = (): Collection<EmailDoc> => db.collection<EmailDoc>("emails");
-export const actions = (): Collection<ActionDoc> => db.collection<ActionDoc>("actions");
+function col<T>(name: string): Coll<T> {
+  if (db) return db.collection(name) as unknown as Coll<T>;
+  if (!json) json = openJsonStore(config.DATA_DIR ? path.resolve(config.DATA_DIR) : null);
+  return json.collection<T>(name);
+}
+
+export const users = (): Coll<UserDoc> => col<UserDoc>("users");
+export const emails = (): Coll<EmailDoc> => col<EmailDoc>("emails");
+export const actions = (): Coll<ActionDoc> => col<ActionDoc>("actions");

@@ -8,15 +8,8 @@ import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AskResponse, Briefing, SyncStatus } from "../../shared/types.js";
-import { fake } from "./fakeDb.js";
+import { actions, closeDb, connectDb, emails, users } from "../src/db.js";
 
-vi.mock("../src/db.js", () => ({
-  users: () => fake.users,
-  emails: () => fake.emails,
-  actions: () => fake.actions,
-  connectDb: async () => undefined,
-  closeDb: async () => undefined,
-}));
 
 // ---------- Fake Gmail inbox ----------
 const now = Date.now();
@@ -139,7 +132,8 @@ const userId = new ObjectId();
 beforeAll(async () => {
   const { createApp } = await import("../src/app.js");
   const { encrypt } = await import("../src/crypto.js");
-  await fake.users.updateOne(
+  await connectDb();
+  await users().updateOne(
     { googleId: "g-1" },
     {
       $setOnInsert: {
@@ -156,7 +150,10 @@ beforeAll(async () => {
   close = () => server.close();
   cookie = `vm_session=${jwt.sign({ sub: userId.toHexString() }, process.env.SESSION_SECRET!)}`;
 });
-afterAll(() => close?.());
+afterAll(async () => {
+  close?.();
+  await closeDb();
+});
 
 const get = (p: string, auth = true) => fetch(base + p, { headers: auth ? { cookie } : {}, redirect: "manual" });
 
@@ -217,7 +214,7 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     expect(body).not.toContain("test-user-own-gemini");
     expect(JSON.parse(body)).toMatchObject({ hasKey: true, last4: "XYZ9", serverKeyAllowed: false });
 
-    const stored = fake.users.docs.find((u) => String(u._id) === String(userId))!;
+    const stored = (await users().findOne({ _id: userId }))!;
     expect(stored.encGeminiKey).toBeTruthy();
     expect(stored.encGeminiKey).not.toContain("test-user-own-gemini");
   });
@@ -235,7 +232,7 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     expect(status.pending).toBe(0);
     expect(status.state).toBe("idle");
 
-    const otp = fake.emails.docs.find((d) => d.gmailId === "m9")!;
+    const otp = (await emails().findOne({ gmailId: "m9" }))!;
     expect(otp.bodyRedacted).toContain("[OTP]");
     expect(otp.bodyRedacted).toContain("[CARD]");
     expect(otp.bodyRedacted).not.toContain("482913");
@@ -301,7 +298,7 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     const res = await fetch(`${base}/ext/connect`, { method: "POST", headers: { cookie } });
     const { token } = (await res.json()) as { token: string };
     expect(token.length).toBeGreaterThan(30);
-    const stored = fake.users.docs.find((u) => String(u._id) === String(userId))!;
+    const stored = (await users().findOne({ _id: userId }))!;
     expect(stored.extTokenHash).toBeTruthy();
     expect(stored.extTokenHash).not.toBe(token); // only the hash is stored
     extToken = token;
@@ -330,7 +327,7 @@ describe("VaaniMail Phase 1 end-to-end", () => {
     const ok = await fetch(`${base}/gmail/spam/trash`, { method: "POST", headers: auth, body: JSON.stringify({ confirm: true, expectedCount: 3 }) });
     expect(await ok.json()).toMatchObject({ trashed: 3 });
     expect(trashed.sort()).toEqual(["sp1", "sp2", "sp3"]);
-    expect(fake.actions.docs).toHaveLength(1);
+    expect(await actions().countDocuments({})).toBe(1);
 
     const undo = await fetch(`${base}/gmail/undo`, { method: "POST", headers: auth });
     expect(await undo.json()).toMatchObject({ restored: 3 });
@@ -346,7 +343,8 @@ describe("VaaniMail Phase 1 end-to-end", () => {
   it("deletes all user data on request", async () => {
     const res = await fetch(`${base}/account`, { method: "DELETE", headers: { cookie } });
     expect(res.status).toBe(200);
-    expect(fake.users.docs).toHaveLength(0);
-    expect(fake.emails.docs).toHaveLength(0);
+    expect(await users().countDocuments({})).toBe(0);
+    expect(await emails().countDocuments({})).toBe(0);
+    expect(await actions().countDocuments({})).toBe(0);
   });
 });
