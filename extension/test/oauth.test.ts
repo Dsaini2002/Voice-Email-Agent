@@ -28,3 +28,13 @@ describe("per-user Google OAuth", () => {
     expect(parseRedirect("https://abc.chromiumapp.org/#state=s1&error=access_denied", "s1")).toEqual({ ok: false, error: "access_denied" });
   });
 });
+
+import { looksLikeGeminiKey } from "../src/bg/ai";
+describe("Gemini key format", () => {
+  it("accepts classic AIza keys and new AQ. auth keys", () => {
+    expect(looksLikeGeminiKey("AI" + "za" + "x".repeat(35))).toBe(true);
+    expect(looksLikeGeminiKey("AQ" + ".Ab8R" + "x".repeat(50) + "-_")).toBe(true);
+    expect(looksLikeGeminiKey("not a key")).toBe(false);
+    expect(looksLikeGeminiKey("short")).toBe(false);
+  });
+});

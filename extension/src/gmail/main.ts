@@ -429,7 +429,7 @@ function setupPanel() {
   const key = s.hasGeminiKey
     ? `<p>Key connected · •••• ${esc(s.keyLast4 ?? "")} <button class="lnk" data-act="replacekey">Replace</button></p>`
     : `<p>The AI runs on <b>your own free</b> Gemini key. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Get a key from Google AI Studio ↗</a> → "Create API key" → paste it here.</p>
-       <form data-act="keyform" class="keyform"><input type="password" placeholder="Paste your Gemini API key (AIza…)" autocomplete="off" spellcheck="false" aria-label="Gemini API key" ${!s.signedIn ? "disabled" : ""}/><button class="btn solid" type="submit" ${!s.signedIn || st.setupBusy ? "disabled" : ""}>Save</button></form>`;
+       <form data-act="keyform" class="keyform"><input type="password" placeholder="Paste your Gemini API key (AQ.… or AIza…)" autocomplete="off" spellcheck="false" aria-label="Gemini API key" ${!s.signedIn ? "disabled" : ""}/><button class="btn solid" type="submit" ${!s.signedIn || st.setupBusy ? "disabled" : ""}>Save</button></form>`;
   const sy = s.sync;
   const progress = !s.signedIn
     ? "<p>Waiting for sign-in.</p>"

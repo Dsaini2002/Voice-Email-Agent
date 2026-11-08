@@ -78,8 +78,17 @@ function parseJSON<T>(text: string): T {
   }
 }
 
-export async function validateKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
-  if (!/^[A-Za-z0-9_-]{20,200}$/.test(apiKey)) return { ok: false, message: "That does not look like a Gemini API key. Copy the full key from AI Studio." };
+/**
+ * Gemini keys: classic "AIza…" keys and the newer "auth keys" that start with "AQ."
+ * (default in AI Studio since May 2026) — both are sent in the x-goog-api-key header.
+ */
+export function looksLikeGeminiKey(k: string): boolean {
+  return /^[A-Za-z0-9._-]{20,400}$/.test(k);
+}
+
+export async function validateKey(rawKey: string): Promise<{ ok: boolean; message: string }> {
+  const apiKey = rawKey.trim();
+  if (!looksLikeGeminiKey(apiKey)) return { ok: false, message: "That does not look like a Gemini API key. Use \"Copy key\" in AI Studio and paste the whole key (it starts with AIza or AQ.)." };
   try {
     await rawCall(apiKey, { system: "Reply with OK.", prompt: "Say OK.", maxOutputTokens: 5, temperature: 0 });
     return { ok: true, message: "Key saved. Analysing your emails now." };

@@ -99,7 +99,7 @@ export function GeminiKeyCard({ status, onSaved, onClose }: Props) {
           type={show ? "text" : "password"}
           value={key}
           onChange={(e) => setKey(e.target.value)}
-          placeholder={status.hasKey ? "Paste a new key to replace it" : "Paste your key (AIza…)"}
+          placeholder={status.hasKey ? "Paste a new key to replace it" : "Paste your key (AQ.… or AIza…)"}
           autoComplete="off"
           spellCheck={false}
           className="hud-input min-w-0 flex-1 font-mono !text-sm"

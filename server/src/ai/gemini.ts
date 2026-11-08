@@ -89,7 +89,8 @@ export type KeyCheck = { ok: true; warning?: string } | { ok: false; reason: str
 
 /** Checks a user's key with one tiny request before we save it. */
 export async function validateGeminiKey(apiKey: string): Promise<KeyCheck> {
-  if (!/^[A-Za-z0-9_\-]{20,200}$/.test(apiKey)) {
+  // Classic "AIza…" keys and the newer "AQ.…" auth keys (AI Studio default since May 2026).
+  if (!/^[A-Za-z0-9._-]{20,400}$/.test(apiKey)) {
     return { ok: false, reason: "That does not look like a Gemini API key. Copy the full key from AI Studio." };
   }
   try {

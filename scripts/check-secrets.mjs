@@ -23,6 +23,7 @@ const BLOCKED_FILES = [
 
 const PATTERNS = [
   { re: /AIza[0-9A-Za-z_\-]{35}/, why: "Google / Gemini API key" },
+  { re: /\bAQ\.[0-9A-Za-z_\-]{40,}/, why: "Gemini auth key (AQ.…)" },
   { re: /GOCSPX-[0-9A-Za-z_\-]{20,}/, why: "Google OAuth client secret" },
   { re: /\b1\/\/0[0-9A-Za-z_\-]{30,}/, why: "Google refresh token" },
   { re: /ya29\.[0-9A-Za-z_\-]{30,}/, why: "Google access token" },

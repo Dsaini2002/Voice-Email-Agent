@@ -88,7 +88,7 @@ apiRouter.get("/settings/gemini", requireAuth, async (req, res) => {
   res.json(await keyStatus(req.userId!));
 });
 
-const keyBody = z.object({ apiKey: z.string().trim().min(1).max(200) });
+const keyBody = z.object({ apiKey: z.string().trim().min(1).max(400) });
 // Strict limit: stops anyone using this endpoint to test stolen keys.
 const keyLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
 
