@@ -691,12 +691,23 @@ async function doBriefing(command: string, myRun: number) {
   openView("briefing", command);
 
   const s = st.day.stats;
-  const intro = items.length
+  let intro = items.length
     ? `You have ${s.shownEmails} important email${s.shownEmails === 1 ? "" : "s"} today.`
     : "Nothing important came in today.";
+  if (!items.length) {
+    // Don't claim "nothing" while the AI is still reading the inbox or is paused.
+    const sync = (await refreshStatus())?.sync;
+    if (sync?.state === "error") intro = `I can't read your emails yet. ${sync.message}`;
+    else if (sync && sync.total > 0 && sync.analyzed < sync.total)
+      intro = `I'm still reading your inbox: ${sync.analyzed} of ${sync.total} emails done. Ask me again in a minute.`;
+  }
   st.subtitle = intro;
   render();
   if (!(await say(intro)) || myRun !== runId) return;
+  if (!items.length) {
+    st.loadedAt = 0; // fetch fresh results next time
+    return;
+  }
 
   for (let i = 0; i < items.length; i++) {
     if (myRun !== runId) return;

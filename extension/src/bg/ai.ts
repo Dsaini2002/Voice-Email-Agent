@@ -26,22 +26,27 @@ interface CallOpts {
   maxOutputTokens?: number;
 }
 
-async function rawCall(apiKey: string, o: CallOpts, useSchema = true): Promise<string> {
+async function rawCall(apiKey: string, o: CallOpts, useSchema = true, timeoutMs = 90_000): Promise<string> {
   const generationConfig: Record<string, unknown> = { temperature: o.temperature ?? 0.2 };
   if (o.maxOutputTokens) generationConfig.maxOutputTokens = o.maxOutputTokens;
   if (o.jsonSchema) {
     generationConfig.responseMimeType = "application/json";
     if (useSchema) generationConfig.responseJsonSchema = o.jsonSchema;
   }
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
   const res = await fetch(`${GEMINI_API}/models/${GEMINI_MODEL}:generateContent`, {
     method: "POST",
+    signal: ctl.signal,
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: o.system }] },
       contents: [{ role: "user", parts: [{ text: o.prompt }] }],
       generationConfig,
     }),
-  });
+  }).catch((e: Error) => {
+    throw new GeminiError(0, e.name === "AbortError" ? "Gemini took too long to answer" : "Network error");
+  }).finally(() => clearTimeout(timer));
   const body = (await res.json().catch(() => ({}))) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
     error?: { message?: string };
@@ -90,13 +95,17 @@ export async function validateKey(rawKey: string): Promise<{ ok: boolean; messag
   const apiKey = rawKey.trim();
   if (!looksLikeGeminiKey(apiKey)) return { ok: false, message: "That does not look like a Gemini API key. Use \"Copy key\" in AI Studio and paste the whole key (it starts with AIza or AQ.)." };
   try {
-    await rawCall(apiKey, { system: "Reply with OK.", prompt: "Say OK.", maxOutputTokens: 5, temperature: 0 });
+    await rawCall(apiKey, { system: "Reply with OK.", prompt: "Say OK.", temperature: 0 }, true, 25_000);
     return { ok: true, message: "Key saved. Analysing your emails now." };
   } catch (err) {
     const s = err instanceof GeminiError ? err.status : 0;
+    const msg = err instanceof Error ? err.message : "";
     if (s === 429) return { ok: true, message: "Key saved. Its free quota is busy right now; analysis will continue automatically." };
-    if (s === 400 || s === 401 || s === 403) return { ok: false, message: "Google rejected this key. Copy it again or create a new one in AI Studio." };
-    return { ok: false, message: "Could not check the key right now (network). Please try again." };
+    if (s === 400 || s === 401 || s === 403) return { ok: false, message: `Google rejected this key (${msg.slice(0, 90)}). Copy it again or create a new one in AI Studio.` };
+    // Google answered but with no text (e.g. only "thinking") — the key itself works.
+    if (s === 502 && /empty response/i.test(msg)) return { ok: true, message: "Key saved. Analysing your emails now." };
+    // Slow network / Google busy: keep the key; analysis retries by itself and shows any error.
+    return { ok: true, message: "Key saved. Google is slow right now, so analysis may take a little longer." };
   }
 }
 
