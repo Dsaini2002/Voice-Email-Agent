@@ -33,14 +33,19 @@ export function evidenceFound(evidence: string, source: string): boolean {
   return hit / evWords.length >= 0.9;
 }
 
+const ASKING = new Set(["help_request", "question", "meeting", "task", "deadline", "payment"]);
+
 export function verifyAnalysis(a: EmailAnalysis, sourceText: string): EmailAnalysis {
-  const needsEvidence = STRONG_CLAIMS.includes(a.status) || a.actionRequired;
+  const asks = ASKING.has(a.intent ?? "") || Boolean(a.needsReply);
+  const needsEvidence = STRONG_CLAIMS.includes(a.status) || a.actionRequired || asks;
   if (!needsEvidence) {
     return { ...a, verified: true, confidence: clamp(a.confidence) };
   }
   const ok = evidenceFound(a.evidence, sourceText);
   return {
     ...a,
+    // "Someone asked you for help" must be provable too — otherwise it's just an update.
+    ...(ok || !asks ? {} : { intent: a.intent === "help_request" || a.intent === "question" ? "update" : a.intent, needsReply: false, ask: "" }),
     verified: ok,
     confidence: ok ? clamp(a.confidence) : Math.min(clamp(a.confidence), 0.4),
   };

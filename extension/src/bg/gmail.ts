@@ -39,6 +39,16 @@ export const gmail = {
     ),
   trash: (id: string) => call(`/messages/${id}/trash`, { method: "POST" }),
   untrash: (id: string) => call(`/messages/${id}/untrash`, { method: "POST" }),
+  send: (raw: string, threadId?: string) =>
+    call<{ id: string; threadId: string }>("/messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(threadId ? { raw, threadId } : { raw }) }),
+  createDraft: (raw: string, threadId?: string) =>
+    call<{ id: string }>("/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: threadId ? { raw, threadId } : { raw } }) }),
+  labels: () => call<{ labels?: { id: string; name: string; type: string }[] }>("/labels"),
+  createLabel: (name: string) =>
+    call<{ id: string; name: string }>("/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, labelListVisibility: "labelShow", messageListVisibility: "show" }) }),
+  /** Add/remove labels on many messages at once (archive = remove INBOX, read = remove UNREAD, star = add STARRED…). */
+  batchModify: (ids: string[], addLabelIds: string[], removeLabelIds: string[]) =>
+    call("/messages/batchModify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, addLabelIds, removeLabelIds }) }),
 };
 
 // ---------------- parsing (no Node APIs: works in the service worker) ----------------

@@ -3,13 +3,20 @@
  * Used by the server AND bundled into the Chrome extension — no Node APIs here.
  */
 import { z } from "zod";
-import type { EmailAnalysis } from "../../../shared/types.js";
+import type { EmailAnalysis, Intent } from "../../../shared/types.js";
 import { verifyAnalysis } from "../intel/truth.js";
 
 export const CATEGORIES = [
   "job", "education", "finance", "personal", "work", "travel", "shopping",
   "promotion", "newsletter", "social", "notification", "spam", "scam", "other",
 ] as const;
+export const INTENTS = [
+  "help_request", "question", "meeting", "task", "deadline", "payment", "order", "travel",
+  "security", "job", "education", "personal", "update", "newsletter", "promotion", "social", "other",
+] as const;
+/** Intents that claim the user must do / answer something — they need an evidence quote. */
+export const ASKING_INTENTS: Intent[] = ["help_request", "question", "meeting", "task", "deadline", "payment"];
+
 export const STATUSES = [
   "none", "application_received", "assessment", "shortlisted", "interview", "offer", "rejected",
 ] as const;
@@ -24,6 +31,7 @@ export interface EmailForAI {
 }
 
 export const SYSTEM = `You are the email-understanding engine of VaaniMail AI, a personal email assistant for a user in India.
+This assistant is used by ALL kinds of people (students, job seekers, office workers, shop owners, parents), so describe emails in universal terms.
 You receive a batch of emails (already PII-redacted: [OTP], [PHONE], [AADHAAR] etc. are placeholders).
 For EACH email return one analysis object. Be precise and conservative — never guess.
 
@@ -57,7 +65,24 @@ DEADLINE: if a due date/time for the action or event is stated, give it as YYYY-
 ENTITY: the organisation or person the email is about (e.g. "Infosys", "HDFC Bank", "Rahul Sharma"). Short.
 GROUPKEY: lowercase "<entity-slug>:<topic>", topic one of application, bill, order, account, newsletter, promo, conversation, event, other. Reminders/follow-ups about the SAME matter from the same entity MUST share the same groupKey.
 SUMMARY: one plain English line, max 20 words, factual.
-CONFIDENCE: 0..1 how sure you are about status + category.`;
+CONFIDENCE: 0..1 how sure you are about status + category.
+
+INTENT (what the email is FOR, one of: ${INTENTS.join(", ")}):
+- "help_request": a person asks the user for help / a favour / a review / a recommendation.
+- "question": a person asks the user a question and waits for an answer.
+- "meeting": invites the user to a meeting, call, event, interview slot to choose.
+- "task": asks the user to do something (fill, upload, submit, approve, verify) without being a favour.
+- "deadline": the main point is a due date (fees, registration, last date).
+- "payment": bills, invoices, payment due/failed/received. "order": purchases, deliveries, returns.
+- "travel": tickets, bookings, itineraries. "security": login alerts, password/OTP, suspicious activity, scams.
+- "job": job application updates (also set STATUS). "education": school/college/course notices.
+- "personal": a personal message from family/friends that needs no specific action. "update": FYI information.
+- "newsletter"/"promotion"/"social": as in CATEGORY. "other": anything else.
+ASK: if a person/organisation wants something from the user, say it in one short line starting with the person, e.g. "Rahul wants you to review his resume by Friday". Else "".
+TAGS: 0-3 short lowercase topic tags (2-3 words each), e.g. ["resume review"], ["fee payment","semester 5"].
+NEEDSREPLY: true only if a real person is waiting for a written reply from the user.
+FROMPERSON: true if a real individual wrote it (not an automated system, newsletter or company mailer).
+For intents help_request, question, meeting, task, deadline, payment (or needsReply=true) the EVIDENCE sentence is REQUIRED.`;
 
 export const responseSchema = {
   type: "object",
@@ -81,10 +106,16 @@ export const responseSchema = {
           scamReason: { type: "string" },
           evidence: { type: "string" },
           confidence: { type: "number" },
+          intent: { type: "string", enum: [...INTENTS] },
+          ask: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+          needsReply: { type: "boolean" },
+          fromPerson: { type: "boolean" },
         },
         required: [
           "id", "category", "status", "priority", "entity", "groupKey", "summary",
           "actionRequired", "actionText", "deadline", "isScam", "scamReason", "evidence", "confidence",
+          "intent", "ask", "tags", "needsReply", "fromPerson",
         ],
       },
     },
@@ -110,7 +141,24 @@ export const itemSchema = z.object({
   scamReason: z.string().catch(""),
   evidence: z.string().catch(""),
   confidence: z.number().catch(0.5),
+  intent: z.enum(INTENTS).optional().catch(undefined),
+  ask: z.string().catch(""),
+  tags: z.array(z.string()).catch([]),
+  needsReply: z.boolean().catch(false),
+  fromPerson: z.boolean().catch(false),
 });
+
+/** For older analyses / models that didn't send an intent: a sensible guess from category + status. */
+export function guessIntent(a: Pick<EmailAnalysis, "category" | "status" | "isScam" | "actionRequired">): Intent {
+  if (a.isScam || a.category === "scam") return "security";
+  if (a.status !== "none" || a.category === "job") return "job";
+  const map: Partial<Record<string, Intent>> = {
+    education: "education", finance: "payment", personal: "personal", travel: "travel", shopping: "order",
+    promotion: "promotion", newsletter: "newsletter", social: "social", notification: "update", work: "task", spam: "promotion",
+  };
+  if (a.actionRequired && (a.category === "work" || a.category === "other")) return "task";
+  return map[a.category] ?? "other";
+}
 
 const BODY_CHARS_FOR_AI = 1500;
 
@@ -143,6 +191,9 @@ export function toAnalyses(raw: { results?: unknown[] }, batch: EmailForAI[]): M
     if (!src) continue;
     const analysis: EmailAnalysis = {
       ...a,
+      intent: a.isScam ? "security" : a.intent ?? guessIntent(a),
+      ask: a.ask.trim().slice(0, 160),
+      tags: a.tags.map((t) => t.trim().toLowerCase().slice(0, 30)).filter(Boolean).slice(0, 3),
       category: a.isScam ? "scam" : a.category,
       entity: a.entity || src.from,
       groupKey: (a.groupKey || `${slug(a.entity || src.from)}:other`).toLowerCase(),

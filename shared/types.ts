@@ -35,6 +35,14 @@ export type AppStatus =
 
 export type Priority = "high" | "medium" | "low";
 
+/**
+ * What an email is FOR — the same list works for everyone (student, job seeker, shop owner, office worker).
+ * Briefing buckets are built from these, so nobody gets job-only boxes they don't need.
+ */
+export type Intent =
+  | "help_request" | "question" | "meeting" | "task" | "deadline" | "payment" | "order" | "travel"
+  | "security" | "job" | "education" | "personal" | "update" | "newsletter" | "promotion" | "social" | "other";
+
 export interface EmailAnalysis {
   category: Category;
   status: AppStatus;
@@ -57,6 +65,16 @@ export interface EmailAnalysis {
   confidence: number;
   /** True when the evidence sentence was found in the original email text. */
   verified: boolean;
+  /** What the email is for (universal, not job-only). */
+  intent?: Intent;
+  /** What the sender wants from you, one short line ("Review Rahul's resume by Friday"). */
+  ask?: string;
+  /** 0-3 short topic tags ("resume review", "fee payment"). */
+  tags?: string[];
+  /** A real person is waiting for your answer. */
+  needsReply?: boolean;
+  /** Written by a real person (not a system / newsletter). */
+  fromPerson?: boolean;
 }
 
 export interface BriefingItem {
@@ -76,6 +94,14 @@ export interface BriefingItem {
   /** How many duplicate / reminder emails were merged into this item. */
   mergedCount: number;
   gmailUrl: string;
+  /** Shown without AI analysis (e.g. the free AI limit is used up): sender + subject only. */
+  basic?: boolean;
+  intent?: Intent;
+  ask?: string;
+  tags?: string[];
+  needsReply?: boolean;
+  /** Not an email: a calendar event or a note shown as a card. */
+  kind?: "event" | "note" | "log";
 }
 
 export type SectionKey =

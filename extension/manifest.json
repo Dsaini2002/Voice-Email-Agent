@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Vaani \u2013 Voice AI agent for Gmail",
+  "name": "Vaani – Voice AI agent for Gmail",
   "short_name": "Vaani",
-  "version": "1.0.0",
-  "description": "JARVIS-style voice agent inside Gmail. Uses your own Google Client ID and Gemini key \u2014 no server, no user limit.",
+  "version": "2.4.0",
+  "description": "Your own voice assistant inside Gmail: briefings, replies, compose, calendar and notes. Uses your own Google Client ID and Gemini key — no server, no user limit.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyqe7AL0PO7xonEV2bPM3G6yqA60Yq2jUBl2hHT+nk7bzXow2IMUfPZoOlCl7GCBMbGV/RpdTXsNLTvSrET8bpZzgjDGZh9EQvVqrXqiwLYkb9Ls7dTm2ulbgYC8sGbMOWnjrD8wTc1+hN7CRiYIHDa7071d3pH/4aqKnuMBh/PlZj0xsGQbdRXfPywqgBSL+E8p9DUT11/8+X/dx6eoYP69BKgiEHHrJV1ITrD5zuUEmQY2KENx0ID7D5Y/f9NTzqok9ENamJpxAf2rR2/YL56yYLpbWrQ9i4g/3EF/wvtJzmmn/ELp60wpIjsqPrdPEDogfkNrOa2s5ZUFW/B5zVwIDAQAB",
   "icons": {
     "16": "icons/icon16.png",
@@ -22,12 +22,14 @@
     "storage",
     "unlimitedStorage",
     "identity",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
   "host_permissions": [
     "https://mail.google.com/*",
     "https://gmail.googleapis.com/*",
     "https://www.googleapis.com/*",
+    "https://tasks.googleapis.com/*",
     "https://oauth2.googleapis.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
@@ -51,5 +53,17 @@
         "https://mail.google.com/*"
       ]
     }
-  ]
+  ],
+  "commands": {
+    "open-assistant": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      },
+      "description": "Open your assistant in Gmail (from any tab)"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  }
 }

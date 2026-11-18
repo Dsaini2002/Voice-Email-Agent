@@ -1,0 +1,124 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Vaani · Wave design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* ==== EDIT HERE: design tokens (same names as extension/src/gmail/styles.ts) ====
+   ink #030a18 · panel #0b1830 · line #20406e · line2 #2f5288 · blue #2a6bff · sky #5fd0ff · white #f4f8ff · dim #8fa8c8
+   Fonts: Sora (names/headings) · Space Grotesk (text) · JetBrains Mono (labels)
+   Signature: bold cards with a hard blue shadow (10px 10px 0 blue) + a living voice wave. */
+
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;font-family:'Space Grotesk';color:#f4f8ff;background:#e9eef6}
+.gm{position:absolute;inset:0;background:repeating-linear-gradient(180deg,#eef2f8 0 39px,#e2e8f1 39px 40px)}
+.scrim{position:absolute;inset:0}
+/* ---------------- A: AURORA ---------------- */
+.A .scrim{background:radial-gradient(900px 600px at 78% 30%,rgba(40,110,255,.38),transparent 60%),radial-gradient(700px 500px at 20% 90%,rgba(0,190,255,.25),transparent 60%),rgba(4,10,24,.80);backdrop-filter:blur(6px)}
+.A .top{position:absolute;left:50%;top:26px;transform:translateX(-50%);display:flex;gap:12px;align-items:center;padding:10px 18px 10px 12px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(14px)}
+.A .top .pill{font:500 11px 'JetBrains Mono';letter-spacing:.12em;color:#7fd3ff;background:rgba(70,180,255,.14);padding:5px 10px;border-radius:999px}
+.A .top b{font:600 19px 'Sora'}
+.A .top .n{font:500 11px 'JetBrains Mono';color:#9fb3cc;letter-spacing:.12em}
+.A .x{position:absolute;right:28px;top:24px;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);font-size:18px}
+.A .card{position:absolute;left:44px;top:110px;width:600px;padding:28px 30px;border-radius:28px;background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.18);box-shadow:0 30px 80px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.2);backdrop-filter:blur(18px)}
+.A .tagrow{display:flex;gap:10px;align-items:center}
+.A .tag{font:500 12px 'JetBrains Mono';letter-spacing:.1em;padding:6px 12px;border-radius:999px;background:#fff;color:#0a1a33}
+.A .time{font:500 12px 'JetBrains Mono';color:#9fb3cc}
+.A h1{font:700 46px 'Sora';margin-top:18px;letter-spacing:-.02em}
+.A .sub{color:#a9bdd6;font-size:19px;margin-top:4px}
+.A .sum{font-size:22px;line-height:1.45;margin-top:18px;font-weight:500}
+.A .meter{display:flex;align-items:center;gap:12px;margin-top:22px;font:500 11px 'JetBrains Mono';letter-spacing:.1em;color:#9fe0ff}
+.A .meter .bar{flex:1;height:8px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.A .meter i{display:block;height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,#2a6bff,#5fe1ff)}
+.A .acts{display:flex;gap:10px;margin-top:24px}
+.A .b{padding:12px 20px;border-radius:14px;font:600 15px 'Space Grotesk';border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06)}
+.A .b.p{background:linear-gradient(135deg,#2a6bff,#3fc9ff);border:0;box-shadow:0 10px 30px rgba(42,107,255,.45)}
+.A .orb{position:absolute;left:1000px;top:330px;transform:translate(-50%,-50%);width:330px;height:330px;border-radius:50%;
+  background:radial-gradient(circle at 38% 32%,#fff 0,#bfe9ff 12%,#4fb6ff 34%,#1f4fd8 62%,#0a1a4a 82%,transparent 84%);
+  box-shadow:0 0 120px rgba(60,150,255,.55),0 0 40px rgba(150,220,255,.6)}
+.A .ring{position:absolute;left:1000px;top:330px;transform:translate(-50%,-50%);border-radius:50%;border:2px solid rgba(160,220,255,.35)}
+.A .wave{position:absolute;left:1000px;top:330px;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center}
+.A .wave i{width:7px;border-radius:9px;background:#fff;opacity:.9}
+.A .nm{position:absolute;left:1000px;top:540px;transform:translateX(-50%);text-align:center}
+.A .nm b{font:700 30px 'Sora';letter-spacing:.06em}
+.A .nm small{display:block;font:500 11px 'JetBrains Mono';letter-spacing:.2em;color:#8fd8ff;margin-top:6px}
+.A .say{position:absolute;left:700px;right:60px;top:640px;text-align:center;font:500 27px 'Space Grotesk';line-height:1.35}
+.A .say mark{background:rgba(70,170,255,.22);color:#fff;padding:0 8px;border-radius:8px}
+.A .hints{position:absolute;left:700px;right:60px;bottom:34px;display:flex;gap:10px;justify-content:center}
+.A .hints span{padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);font-size:15px}
+.A .hints span b{color:#7fd3ff;font-weight:600}
+.A .launch{position:absolute;left:28px;bottom:28px;display:flex;align-items:center;gap:14px;padding:10px 22px 10px 10px;border-radius:999px;background:rgba(6,14,32,.92);border:1px solid rgba(120,200,255,.35);box-shadow:0 14px 40px rgba(0,0,0,.4),0 0 30px rgba(42,107,255,.25)}
+.A .mini{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#fff 0,#bfe9ff 14%,#4fb6ff 38%,#1f4fd8 70%,#0a1a4a 100%);box-shadow:0 0 20px rgba(80,170,255,.7)}
+.A .launch b{font:700 17px 'Sora';letter-spacing:.06em;display:block}
+.A .launch small{font:500 10px 'JetBrains Mono';letter-spacing:.16em;color:#7fe0a0}
+.A .launch .w{display:flex;gap:3px;align-items:center;margin-left:6px}.A .launch .w i{width:3px;border-radius:3px;background:#7fd3ff}
+/* ---------------- B: RIBBON ---------------- */
+.B .scrim{background:linear-gradient(180deg,rgba(2,6,16,.86),rgba(2,8,22,.92));backdrop-filter:blur(8px)}
+.B .side{position:absolute;left:0;top:0;bottom:0;width:640px;background:linear-gradient(90deg,rgba(10,22,48,.92),rgba(10,22,48,.0))}
+.B .top{position:absolute;left:44px;top:34px;display:flex;align-items:center;gap:14px}
+.B .top .dot{width:10px;height:10px;border-radius:50%;background:#3fc9ff;box-shadow:0 0 12px #3fc9ff}
+.B .top .q{font:600 22px 'Sora'}
+.B .top .n{font:500 11px 'JetBrains Mono';letter-spacing:.14em;color:#8aa4c4;border-left:1px solid #2c4468;padding-left:14px}
+.B .x{position:absolute;right:30px;top:28px;font:500 12px 'JetBrains Mono';letter-spacing:.14em;color:#c9d8ec;padding:10px 14px;border:1.5px solid #2c4468;border-radius:12px}
+.B .card{position:absolute;left:44px;top:104px;width:590px;padding:28px 30px 28px 34px;border-radius:20px;background:#0b1830;border:1.5px solid #20406e;box-shadow:12px 12px 0 #2a6bff}
+.B .card:before{content:"";position:absolute;left:0;top:24px;bottom:24px;width:6px;border-radius:0 6px 6px 0;background:#fff}
+.B .tag{display:inline-block;font:700 12px 'Space Grotesk';letter-spacing:.12em;padding:6px 12px;border-radius:8px;background:#2a6bff;color:#fff}
+.B .time{font:500 12px 'JetBrains Mono';color:#7f97b8;margin-left:10px}
+.B h1{font:700 48px 'Sora';margin-top:16px;letter-spacing:-.03em}
+.B .sub{color:#8fa8c8;font-size:19px;margin-top:2px}
+.B .sum{font-size:22px;line-height:1.45;margin-top:16px;font-weight:500;color:#e8f1ff}
+.B .chips{display:flex;gap:8px;margin-top:18px}.B .chips span{font:500 11px 'JetBrains Mono';letter-spacing:.1em;padding:6px 10px;border-radius:8px;border:1.5px solid #2c4c7c;color:#bfe0ff}
+.B .acts{display:flex;gap:10px;margin-top:24px}
+.B .b{padding:12px 20px;border-radius:12px;font:700 15px 'Space Grotesk';border:1.5px solid #34507c;color:#eaf3ff}
+.B .b.p{background:#fff;color:#06142c;border-color:#fff}
+.B svg.rib{position:absolute;left:660px;top:330px;width:780px;height:240px}
+.B .nm{position:absolute;left:1050px;top:170px;transform:translateX(-50%);text-align:center}
+.B .nm b{font:700 64px 'Sora';letter-spacing:-.02em}
+.B .nm small{display:block;font:500 12px 'JetBrains Mono';letter-spacing:.24em;color:#6fd0ff;margin-top:8px}
+.B .say{position:absolute;left:700px;right:60px;top:620px;font:500 28px 'Space Grotesk';line-height:1.35;text-align:center}
+.B .say mark{background:none;color:#5fd0ff;border-bottom:3px solid #2a6bff}
+.B .hints{position:absolute;left:700px;right:60px;bottom:34px;display:flex;gap:10px;justify-content:center}
+.B .hints span{padding:10px 16px;border-radius:12px;background:#0b1830;border:1.5px solid #20406e;font-size:15px}
+.B .hints span b{color:#5fd0ff}
+.B .launch{position:absolute;left:28px;bottom:28px;display:flex;align-items:center;gap:14px;padding:12px 22px 12px 18px;border-radius:18px;background:#06122a;border:1.5px solid #2a6bff;box-shadow:6px 6px 0 #2a6bff}
+.B .launch svg{width:54px;height:30px}
+.B .launch b{font:700 17px 'Sora';display:block}
+.B .launch small{font:500 10px 'JetBrains Mono';letter-spacing:.16em;color:#7fe0a0}
+</style></head><body class="">
+<div class="gm"></div><div class="scrim"></div>
+<div id="A" style="display:none">
+  <div class="top"><span class="pill">YOU SAID</span><b>"Open Ascendion"</b><span class="n">1 MESSAGE</span></div><div class="x">✕</div>
+  <div class="card"><div class="tagrow"><span class="tag">APPLIED</span><span class="time">TODAY · 16:38</span></div>
+    <h1>Ascendion</h1><div class="sub">Dinesh, we have received your application</div>
+    <div class="sum">They confirmed they received your application for <b>Python AI Engineer</b>.</div>
+    <div class="meter"><span>✓ VERIFIED</span><div class="bar"><i></i></div><span>100%</span></div>
+    <div class="acts"><span class="b p">Reply</span><span class="b">Open in Gmail</span><span class="b">Read aloud</span><span class="b">Back</span></div></div>
+  <div class="ring" style="width:420px;height:420px"></div><div class="ring" style="width:500px;height:500px;opacity:.5;border-style:dashed"></div>
+  <div class="orb"></div>
+  <div class="wave">%W%</div>
+  <div class="nm"><b>VAANI</b><small>SPEAKING</small></div>
+  <div class="say">"<mark>Ascendion</mark> confirmed they received your application for Python AI Engineer."</div>
+  <div class="hints"><span><b>Reply</b> to this</span><span><b>Open</b> in Gmail</span><span>Back to <b>summary</b></span></div>
+  <div class="launch"><div class="mini"></div><div><b>VAANI</b><small>● LISTENING</small></div><div class="w">%w%</div></div>
+</div>
+<div id="B" style="display:none">
+  <div class="side"></div>
+  <div class="top"><span class="dot"></span><span class="q">"Open Ascendion"</span><span class="n">1 MESSAGE</span></div><div class="x">ESC · CLOSE</div>
+  <div class="card"><span class="tag">APPLIED</span><span class="time">TODAY · 16:38</span>
+    <h1>Ascendion</h1><div class="sub">Dinesh, we have received your application</div>
+    <div class="sum">They confirmed they received your application for Python AI Engineer.</div>
+    <div class="chips"><span>✓ VERIFIED</span><span>CONFIDENCE 100%</span></div>
+    <div class="acts"><span class="b p">Reply</span><span class="b">Open in Gmail</span><span class="b">Read aloud</span><span class="b">Back</span></div></div>
+  <svg class="rib" viewBox="0 0 780 300">%R%</svg>
+  <div class="nm"><b>Vaani</b><small>SPEAKING</small></div>
+  <div class="say">"<mark>Ascendion</mark> confirmed they received your application for Python AI Engineer."</div>
+  <div class="hints"><span><b>Reply</b> to this</span><span><b>Open</b> in Gmail</span><span>Back to <b>summary</b></span></div>
+  <div class="launch"><svg viewBox="0 0 54 30">%r%</svg><div><b>Vaani</b><small>● LISTENING</small></div></div>
+</div>
+<script>
+const c = 'B';
+document.body.className = c;
+const el = document.getElementById(c); el.style.display = 'block';
+const W = [18,34,56,80,64,92,70,46,84,58,36,22].map(h=>`<i style="height:${h}px"></i>`).join('');
+const w = [8,16,24,14,20,10].map(h=>`<i style="height:${h}px"></i>`).join('');
+let R=''; for(let k=0;k<7;k++){let d='M0 150';for(let x=0;x<=780;x+=10){const env=Math.sin(Math.PI*x/780);d+=` L${x} ${150+Math.sin(x/38+k*0.7)*env*(40+k*12)*Math.cos(k*0.4)}`}R+=`<path d="${d}" fill="none" stroke="${k%2?'#2a6bff':'#9fe3ff'}" stroke-width="${k==3?3:1.6}" opacity="${0.35+0.09*k}"/>`}
+let r=''; for(let k=0;k<3;k++){let d='M0 15';for(let x=0;x<=54;x+=2){d+=` L${x} ${15+Math.sin(x/5+k)*Math.sin(Math.PI*x/54)*(6+k*3)}`}r+=`<path d="${d}" fill="none" stroke="${k==1?'#fff':'#3fc9ff'}" stroke-width="2"/>`}
+el.innerHTML = el.innerHTML.replace('%W%',W).replace('%w%',w).replace('%R%',R).replace('%r%',r);
+</script></body></html>

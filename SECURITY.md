@@ -58,7 +58,9 @@ Uske baad secret ko history se hatana ho to [GitHub ka guide](https://docs.githu
 
 ## 4. App ke andar user data ki suraksha
 
-- Gmail access `gmail.modify` hai: padhna aur Trash mein bhejna. App email **send nahi kar sakta** aur **permanently delete nahi kar sakta**.
+- Gmail access `gmail.modify` hai: padhna, Trash, draft aur send. App **permanently delete nahi kar sakta**.
+- Calendar (`calendar.events`) aur Notes (`tasks`) ki permission sirf aapke apne events aur Google Tasks ke liye hai. Har add/delete ka Undo hai.
+- Reply **sirf tab send hota hai jab aap "send" bolte hain**, draft sunne ke baad, aur 5 second tak "stop" bolkar rok sakte hain. Scam email ka reply nahi karta, aur khaali jagah ([...]) bhare bina send nahi hota.
 - Spam delete jaisa har action sirf aapke "confirm" ke baad hota hai, `actions` collection mein log hota hai, aur "Undo" se wapas aata hai.
 - Chrome extension ka token sirf extension ke background worker mein rehta hai (Gmail page use nahi padh sakta). Server par sirf uska SHA-256 hash save hota hai. Is token se account delete, Gemini key change ya naya token nahi ban sakta.
 - Google refresh token aur user ki Gemini key **AES-256-GCM** se encrypted save hote hain.

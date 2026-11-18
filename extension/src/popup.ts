@@ -1,4 +1,5 @@
-import { api, getSettings, type Settings } from "./shared";
+import { api, getSettings, usefulVoices, voiceLabel, VOICE_SAMPLE, type Settings } from "./shared";
+import { cleanName, nameProblem } from "./gmail/wake";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const el = (tag: string, cls: string, text: string) => Object.assign(document.createElement(tag), { className: cls, textContent: text });
@@ -16,7 +17,13 @@ async function render() {
   const s = await getSettings();
   $<HTMLInputElement>("micOn").checked = s.micOn;
   $<HTMLInputElement>("wakeWord").checked = s.wakeWord;
+  $<HTMLInputElement>("subtitles").checked = s.subtitles !== false;
   $<HTMLSelectElement>("recLang").value = s.recLang;
+  $<HTMLInputElement>("voiceRate").value = String(s.voiceRate);
+  $<HTMLInputElement>("assistantName").value = s.assistantName;
+  $("title").textContent = s.assistantName || "Vaani";
+  $<HTMLInputElement>("voicePitch").value = String(s.voicePitch);
+  fillVoices(s.voiceName);
 
   const res = await api<Status>("/ext/status");
   const status = $("status");
@@ -80,8 +87,72 @@ async function save(patch: Partial<Settings>) {
   await chrome.storage.local.set(patch);
 }
 
+function fillVoices(selected: string) {
+  const sel = $<HTMLSelectElement>("voiceName");
+  const voices = usefulVoices(speechSynthesis.getVoices());
+  sel.replaceChildren(new Option("Automatic (best available)", ""), ...voices.map((v) => new Option(voiceLabel(v), v.name)));
+  sel.value = voices.some((v) => v.name === selected) ? selected : "";
+}
+speechSynthesis.addEventListener("voiceschanged", () => void getSettings().then((s) => fillVoices(s.voiceName)));
+
+function testVoice() {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(VOICE_SAMPLE);
+  const name = $<HTMLSelectElement>("voiceName").value;
+  const v = speechSynthesis.getVoices().find((x) => x.name === name);
+  if (v) {
+    u.voice = v;
+    u.lang = v.lang;
+  }
+  u.rate = Number($<HTMLInputElement>("voiceRate").value);
+  u.pitch = Number($<HTMLInputElement>("voicePitch").value);
+  speechSynthesis.speak(u);
+}
+$<HTMLSelectElement>("voiceName").addEventListener("change", (e) => {
+  void save({ voiceName: (e.target as HTMLSelectElement).value });
+  testVoice();
+});
+$<HTMLInputElement>("voiceRate").addEventListener("change", (e) => {
+  void save({ voiceRate: Number((e.target as HTMLInputElement).value) });
+  testVoice();
+});
+$<HTMLInputElement>("voicePitch").addEventListener("change", (e) => {
+  void save({ voicePitch: Number((e.target as HTMLInputElement).value) });
+  testVoice();
+});
+$("testVoice").addEventListener("click", testVoice);
+
+async function renderHistory() {
+  const r = await api<{ emails: number; since: string | null; bytes: number }>("/history/info", "POST", {});
+  $("hist").textContent = r.ok
+    ? `${r.data.emails} emails saved on this computer${r.data.since ? ` since ${new Date(r.data.since).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""} · ${(r.data.bytes / 1024 / 1024).toFixed(1)} MB. Ask "how many interviews this month?" or "show my job tracker".`
+    : "Sign in to start your history.";
+}
+$("clearHist").addEventListener("click", async () => {
+  if (!confirm("Delete the saved email history from this computer? (Your Gmail is not touched.)")) return;
+  await api("/history/clear", "POST", {});
+  void renderHistory();
+});
+void renderHistory();
+$("saveName").addEventListener("click", async () => {
+  const raw = $<HTMLInputElement>("assistantName").value.trim();
+  const name = cleanName(raw);
+  const problem = nameProblem(name);
+  const msg = $("saveName");
+  if (problem) {
+    alert(problem);
+    return;
+  }
+  await save({ assistantName: name });
+  $<HTMLInputElement>("assistantName").value = name;
+  $("title").textContent = name;
+  msg.textContent = "Saved ✓";
+  setTimeout(() => (msg.textContent = "Save"), 1500);
+});
+
 $<HTMLInputElement>("micOn").addEventListener("change", (e) => save({ micOn: (e.target as HTMLInputElement).checked }));
 $<HTMLInputElement>("wakeWord").addEventListener("change", (e) => save({ wakeWord: (e.target as HTMLInputElement).checked }));
+$<HTMLInputElement>("subtitles").addEventListener("change", (e) => save({ subtitles: (e.target as HTMLInputElement).checked }));
 $<HTMLSelectElement>("recLang").addEventListener("change", (e) => save({ recLang: (e.target as HTMLSelectElement).value as Settings["recLang"] }));
 $("gmail").addEventListener("click", () => void chrome.tabs.create({ url: "https://mail.google.com/mail/u/0/#inbox" }));
 $("signin").addEventListener("click", async () => {

@@ -1,11 +1,11 @@
 /** Pure helpers for the Google OAuth (implicit) flow — unit tested. */
 
-export const SCOPES = [
-  "https://www.googleapis.com/auth/gmail.modify",
-  "https://www.googleapis.com/auth/userinfo.email",
-  "https://www.googleapis.com/auth/userinfo.profile",
-];
-export const GMAIL_SCOPE = SCOPES[0];
+export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+export const TASKS_SCOPE = "https://www.googleapis.com/auth/tasks";
+export const BASE_SCOPES = [GMAIL_SCOPE, "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"];
+/** Gmail (read, send, organise — never permanent delete), Calendar events, and Google Tasks (notes). */
+export const SCOPES = [...BASE_SCOPES, CALENDAR_SCOPE, TASKS_SCOPE];
 
 /** A Google OAuth client ID looks like 1234567890-abc123.apps.googleusercontent.com */
 export const CLIENT_ID_RE = /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/;
@@ -14,12 +14,12 @@ export function normalizeClientId(raw: string): string {
   return raw.trim().replace(/^["']|["']$/g, "");
 }
 
-export function buildAuthUrl(opts: { clientId: string; redirectUri: string; state: string; interactive: boolean; loginHint?: string }): string {
+export function buildAuthUrl(opts: { clientId: string; redirectUri: string; state: string; interactive: boolean; loginHint?: string; scopes?: string[] }): string {
   const q = new URLSearchParams({
     client_id: opts.clientId,
     response_type: "token",
     redirect_uri: opts.redirectUri,
-    scope: SCOPES.join(" "),
+    scope: (opts.scopes ?? SCOPES).join(" "),
     include_granted_scopes: "true",
     state: opts.state,
     prompt: opts.interactive ? "consent select_account" : "none",

@@ -7,7 +7,7 @@
  * - When a token expires it is renewed silently (prompt=none) in the background.
  */
 import { IS_TEST, REVOKE_API, USERINFO_API } from "./env";
-import { buildAuthUrl, CLIENT_ID_RE, GMAIL_SCOPE, parseRedirect } from "./oauth";
+import { BASE_SCOPES, buildAuthUrl, CLIENT_ID_RE, GMAIL_SCOPE, parseRedirect, SCOPES } from "./oauth";
 import { db } from "./store";
 
 export class AuthError extends Error {
@@ -54,12 +54,16 @@ async function runFlow(interactive: boolean): Promise<string> {
   if (!clientId) throw new AuthError("NO_CLIENT_ID", "Add your Google Client ID first (setup step 1).");
   if (IS_TEST) {
     const s = { token: `test-token-${clientId}`, expiresAt: Date.now() + 3600_000 };
+    if (interactive) await db.set("grantedScopes", SCOPES);
     await setSession(s);
     return s.token;
   }
   const account = await db.get("account");
   const state = randomState();
-  const url = buildAuthUrl({ clientId, redirectUri: redirectUri(), state, interactive, loginHint: account?.email });
+  // Silent renewals must not ask for permissions the user hasn't given yet (Google would refuse).
+  const granted = (await db.get("grantedScopes")) ?? [];
+  const scopes = interactive ? SCOPES : granted.length ? SCOPES.filter((s) => granted.includes(s) || BASE_SCOPES.includes(s)) : BASE_SCOPES;
+  const url = buildAuthUrl({ clientId, redirectUri: redirectUri(), state, interactive, loginHint: account?.email, scopes });
   let redirect: string | undefined;
   try {
     redirect = await chrome.identity.launchWebAuthFlow({ url, interactive });
@@ -79,6 +83,7 @@ async function runFlow(interactive: boolean): Promise<string> {
   if (r.scopes.length && !r.scopes.includes(GMAIL_SCOPE)) {
     throw new AuthError("AUTH_FAILED", "Gmail permission was not granted. Sign in again and tick the Gmail checkbox.");
   }
+  if (interactive) await db.set("grantedScopes", r.scopes.length ? r.scopes : SCOPES);
   await setSession({ token: r.token, expiresAt: r.expiresAt });
   return r.token;
 }
@@ -124,6 +129,7 @@ export async function signOutAndDelete(): Promise<void> {
   await db.clearUserData();
   await db.remove("account");
   await db.remove("geminiKey");
+  await db.remove("grantedScopes");
 }
 
 export async function setClientId(raw: string): Promise<void> {

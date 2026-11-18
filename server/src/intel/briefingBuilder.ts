@@ -58,6 +58,10 @@ export function sectionFor(a: EmailAnalysis): SectionKey | null {
     return a.status as SectionKey;
   }
   if (a.actionRequired && a.verified) return "action";
+  // Someone is waiting for you (help, question, meeting, task…): always show it, whatever the category.
+  if (a.verified && (a.needsReply || ["help_request", "question", "meeting", "task", "deadline"].includes(a.intent ?? ""))) {
+    return a.category === "personal" ? "personal" : a.actionRequired ? "action" : "other_important";
+  }
   if (HIDDEN_CATEGORIES.has(a.category)) return a.priority === "high" ? "other_important" : null;
   if (a.category === "personal") return "personal";
   if (a.category === "finance" && a.priority !== "low") return "finance";
@@ -146,6 +150,10 @@ export function buildSections(
       verified: a.verified,
       mergedCount: merged,
       gmailUrl: gmailUrl(item.threadId, accountEmail),
+      intent: a.intent,
+      ask: a.ask,
+      tags: a.tags,
+      needsReply: a.needsReply,
     };
     const arr = buckets.get(section) ?? [];
     arr.push(bi);

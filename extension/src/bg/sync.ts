@@ -1,6 +1,7 @@
 /** Background inbox sync (chrome.alarms) — reads new mail, redacts PII, then analyses it. */
 import { redactPII } from "../../../server/src/privacy/redact";
 import { analyzePending } from "./ai";
+import { backfillTick, mirror, syncSent } from "./history";
 import { AuthError } from "./auth";
 import { INITIAL_SYNC_DAYS, INITIAL_SYNC_MAX, RETENTION_DAYS } from "./env";
 import { extractBody, gmail, GmailError, header, parseFrom } from "./gmail";
@@ -101,6 +102,7 @@ export async function runSync(): Promise<void> {
         } else throw err;
       }
     }
+    await mirror(); // keep a permanent copy in SQLite before old emails leave chrome.storage
     await prune();
   } catch (err) {
     if (err instanceof AuthError) return;
@@ -110,4 +112,7 @@ export async function runSync(): Promise<void> {
     running = false;
   }
   await analyzePending();
+  await mirror(); // store the AI results too
+  await syncSent(); // which emails you already answered
+  await backfillTick(); // old-email import, a little at a time
 }

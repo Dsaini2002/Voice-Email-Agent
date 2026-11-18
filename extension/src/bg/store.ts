@@ -24,8 +24,10 @@ export interface EmailRec {
 export interface SyncState {
   historyId: string | null;
   lastSyncAt: string | null;
-  state: "idle" | "syncing" | "analyzing" | "error" | "needs_key";
+  state: "idle" | "syncing" | "analyzing" | "error" | "needs_key" | "quota";
   message: string;
+  /** While the free Gemini limit is used up, analysis waits until this time (ISO). */
+  pausedUntil?: string | null;
 }
 
 interface Schema {
@@ -34,8 +36,16 @@ interface Schema {
   account: Account;
   geminiKey: string;
   sync: SyncState;
+  /** Google permissions the user actually granted (silent renewals ask for exactly these). */
+  grantedScopes: string[];
   emails: Record<string, EmailRec>;
-  lastAction: { type: "trash_spam"; ids: string[]; at: string } | null;
+  /** What "undo" reverses. */
+  lastAction:
+    | { type: "trash_spam" | "trash"; ids: string[]; at: string }
+    | { type: "modify"; ids: string[]; add: string[]; remove: string[]; at: string }
+    | { type: "event"; ids: string[]; at: string }
+    | { type: "note"; ids: string[]; at: string }
+    | null;
 }
 
 type Key = keyof Schema;

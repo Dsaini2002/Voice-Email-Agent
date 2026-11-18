@@ -1,10 +1,11 @@
-# Vaani HUD Design (for Phase 2)
+# Vaani "Wave" design
 
-- `vaani-hud-design.html`: editable design file. Open it in Chrome/Edge and switch screens with keys 1–5 or the buttons at the top-right.
-- To change the design, open the file in VS Code / Notepad:
-  - Colours, transparency, mic position, card size, core size: the `:root` block ("EDIT THE DESIGN HERE")
-  - Agent name / wake word: `AGENT_NAME`, `WAKE_WORD`
-  - Sample cards: `const DATA`
-- `01-idle.jpg` … `05-full.jpg`: screenshots of the current design.
+- `vaani-wave-design.html` — editable mockup of the design. Open it in Chrome and change the CSS.
+- The real extension styles live in `extension/src/gmail/styles.ts`. Change the tokens in its `:host` block to re-theme everything:
+  - colours: `--ink`, `--panel`, `--line`, `--blue`, `--sky`, `--white`, `--dim`
+  - the signature hard shadow: `--shadow` (`10px 10px 0 var(--blue)`)
+  - corner radius: `--r`, `--r-sm`
+  - fonts: Sora (names/headings), Space Grotesk (text), JetBrains Mono (labels)
+- `01-briefing.jpg` … `05-setup.jpg` — screenshots of the current design.
 
-Fonts (Orbitron, Rajdhani, JetBrains Mono) are embedded in the file, so it works offline.
+Rules of the design: blue / white / black only, bold cards with a hard blue shadow, the assistant's own name in big type, a living voice wave instead of a mic icon, no sci-fi HUD.

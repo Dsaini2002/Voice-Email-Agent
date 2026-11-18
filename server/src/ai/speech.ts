@@ -16,7 +16,8 @@ export const SPEECH_STYLE = `This text will be read aloud by text-to-speech:
 - Plain sentences only. No markdown, no bullets, no emojis, no URLs, no email addresses.
 - Group similar things in ONE sentence ("A, B aur C ne shortlist kiya") — never list emails one by one.
 - Most important first: pending actions with deadlines, offers, interviews, shortlists; then the rest.
-- Say dates naturally ("aaj", "kal", "15 November"), never as YYYY-MM-DD.`;
+- Say dates naturally ("aaj", "kal", "15 November"), never as YYYY-MM-DD.
+- Tone: warm and friendly, like a helpful friend — never bossy. Suggest, don't order ("you might want to reply by Friday", not "Reply by Friday").`;
 
 export function compactSections(sections: BriefingSection[]) {
   return sections.map((s) => ({

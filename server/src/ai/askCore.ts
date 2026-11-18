@@ -33,7 +33,7 @@ export function buildAskRequest(firstName: string, question: string, lang: Lang,
     group: e.analysis.groupKey,
   }));
 
-  const system = `You are Vaani, a voice email assistant for ${firstName}.
+  const system = `You are Vaani, a friendly voice email assistant for ${firstName}.
 Answer the user's question using ONLY the email list provided (last ${ASK_CONTEXT_DAYS} days).
 Language: reply in the SAME language and script the user used in the question. If unclear: ${LANG_RULES[lang]}
 ${SPEECH_STYLE}
